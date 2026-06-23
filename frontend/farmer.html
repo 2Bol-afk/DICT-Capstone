@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Agri-Admin | Aking Bukid</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background:#f7fbf0; color:#181d17; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen pb-10">
+<header class="sticky top-0 bg-white border-b px-4 py-4 flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[#0d631b]" style="font-variation-settings:'FILL' 1;">potted_plant</span>
+<h1 class="font-bold text-lg text-[#0d631b]">Aking Bukid / My Farm</h1>
+</header>
+
+<div class="p-4 max-w-md mx-auto space-y-4">
+<div class="bg-white rounded-xl p-4 shadow-sm border" id="searchCard">
+<label class="block text-sm font-medium text-gray-600 mb-2">Pangalan ng Bukid / Your Farm Name</label>
+<div class="flex gap-2">
+<input class="flex-1 border rounded-lg px-3 py-2" id="farmNameInput" placeholder="e.g. dela-cruz-farm" type="text">
+<button class="bg-[#0d631b] text-white px-4 py-2 rounded-lg font-bold" id="farmSearchBtn">Hanapin</button>
+</div>
+<p class="text-xs text-red-600 mt-2 hidden" id="farmSearchError">Farm not found.</p>
+</div>
+
+<div class="hidden bg-white rounded-xl p-4 shadow-sm border" id="sensorListCard">
+<p class="text-xs uppercase font-bold text-gray-500 mb-3">Mga Sensor / Sensors</p>
+<div class="flex flex-wrap gap-2" id="sensorList"></div>
+</div>
+
+<div class="hidden space-y-4" id="result">
+<div class="bg-white rounded-xl p-4 shadow-sm border">
+<p class="text-sm text-gray-500" id="resOwner">-</p>
+<p class="text-lg font-bold" id="resPlotId">-</p>
+<p class="text-xs text-gray-500 mt-1" id="resCoords">-</p>
+</div>
+
+<div class="bg-white rounded-xl p-5 shadow-sm border-l-4 border-[#0d631b]">
+<p class="text-xs uppercase font-bold text-[#0d631b] mb-2">Rekomendasyon / Recommendation</p>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-4xl text-[#0d631b]" style="font-variation-settings:'FILL' 1;">agriculture</span>
+<div>
+<p class="text-2xl font-bold" id="resCrop">-</p>
+<p class="text-sm text-gray-500" id="resConfidence">-</p>
+</div>
+</div>
+<p class="text-sm text-gray-500 mt-3" id="resMessage"></p>
+<button class="mt-3 text-sm font-bold text-[#0d631b] underline hidden" id="explainBtn">Bakit? / Why?</button>
+<p class="text-sm text-gray-500 mt-2 italic" id="explainText"></p>
+</div>
+
+<div class="bg-white rounded-xl p-5 shadow-sm border">
+<p class="text-xs uppercase font-bold text-gray-500 mb-3">Pagbasa ng Sensor / Sensor Readings</p>
+<div class="grid grid-cols-2 gap-3 text-sm" id="readingsGrid">
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">N</p><p class="text-lg font-bold text-[#0d631b]" id="rN">-</p></div>
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">P</p><p class="text-lg font-bold text-[#0d631b]" id="rP">-</p></div>
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">K</p><p class="text-lg font-bold text-[#0d631b]" id="rK">-</p></div>
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">pH</p><p class="text-lg font-bold text-[#0d631b]" id="rPh">-</p></div>
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Temp</p><p class="text-lg font-bold" id="rTemp">-</p></div>
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Moisture</p><p class="text-lg font-bold" id="rMoisture">-</p></div>
+</div>
+<p class="text-xs text-gray-400 mt-3" id="resTimestamp"></p>
+</div>
+
+<div class="bg-white rounded-xl p-5 shadow-sm border">
+<p class="text-xs uppercase font-bold text-gray-500 mb-3">Kasaysayan / History</p>
+<table class="w-full text-left text-sm">
+<thead class="text-gray-400 text-xs"><tr><th class="py-1">Petsa</th><th class="py-1">pH</th><th class="py-1">Temp</th><th class="py-1">Pananim</th></tr></thead>
+<tbody id="historyBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+
+<script>
+        const API = "http://127.0.0.1:8000";
+        // ponytail: read-only farmer view, no password — typing your farm name or plot ID is the "login".
+        // Fine for a single-cooperative demo; add real per-farmer auth if this goes multi-tenant.
+        let currentReadingId = null;
+
+        async function lookup(plotId) {
+            document.getElementById("farmSearchError").classList.add("hidden");
+            document.getElementById("result").classList.add("hidden");
+            const res = await fetch(`${API}/readings/${encodeURIComponent(plotId)}`);
+            const readings = await res.json();
+            if (!readings.length) {
+                document.getElementById("farmSearchError").classList.remove("hidden");
+                return;
+            }
+            render(readings);
+        }
+
+        async function lookupFarm(farmName) {
+            document.getElementById("farmSearchError").classList.add("hidden");
+            document.getElementById("result").classList.add("hidden");
+            document.getElementById("sensorListCard").classList.add("hidden");
+            const res = await fetch(`${API}/farms/by-name/${encodeURIComponent(farmName)}`);
+            if (!res.ok) {
+                document.getElementById("farmSearchError").classList.remove("hidden");
+                return;
+            }
+            const farm = await res.json();
+            if (!farm.sensors.length) {
+                document.getElementById("farmSearchError").textContent = "This farm has no sensors yet.";
+                document.getElementById("farmSearchError").classList.remove("hidden");
+                return;
+            }
+            const list = document.getElementById("sensorList");
+            list.innerHTML = "";
+            farm.sensors.forEach((s, i) => {
+                const btn = document.createElement("button");
+                btn.className = "border rounded-lg px-3 py-2 text-sm font-bold text-[#0d631b] border-[#0d631b] hover:bg-[#0d631b] hover:text-white transition-colors";
+                btn.textContent = `Sensor ${i + 1}`;
+                btn.addEventListener("click", () => lookup(s.plot_id));
+                list.appendChild(btn);
+            });
+            document.getElementById("sensorListCard").classList.remove("hidden");
+            lookup(farm.sensors[0].plot_id);
+        }
+
+        function render(readings) {
+            const head = readings[0];
+            const latest = readings.find(r => r.soil_n !== null) || null;
+            currentReadingId = latest ? latest.id : null;
+
+            document.getElementById("resOwner").textContent = head.owner_name || "-";
+            document.getElementById("resPlotId").textContent = head.plot_id;
+            document.getElementById("resCoords").textContent = `${head.lat.toFixed(4)}° N, ${head.lng.toFixed(4)}° E`;
+
+            const explainBtn = document.getElementById("explainBtn");
+            document.getElementById("explainText").textContent = "";
+            explainBtn.textContent = "Bakit? / Why?";
+
+            if (latest && latest.predicted_crop) {
+                document.getElementById("resCrop").textContent = latest.predicted_crop;
+                document.getElementById("resConfidence").textContent = `${Math.round(latest.confidence * 100)}% confidence`;
+                document.getElementById("resMessage").textContent = "";
+                explainBtn.classList.remove("hidden");
+            } else if (latest) {
+                document.getElementById("resCrop").textContent = "Walang katugma";
+                document.getElementById("resConfidence").textContent = "-";
+                document.getElementById("resMessage").textContent = latest.message || "No confident match for this reading.";
+                explainBtn.classList.add("hidden");
+            } else {
+                document.getElementById("resCrop").textContent = "Wala pang datos";
+                document.getElementById("resConfidence").textContent = "-";
+                document.getElementById("resMessage").textContent = "No readings yet for this plot.";
+                explainBtn.classList.add("hidden");
+            }
+
+            document.getElementById("rN").textContent = latest ? latest.soil_n : "-";
+            document.getElementById("rP").textContent = latest ? latest.soil_p : "-";
+            document.getElementById("rK").textContent = latest ? latest.soil_k : "-";
+            document.getElementById("rPh").textContent = latest ? latest.soil_ph : "-";
+            document.getElementById("rTemp").textContent = latest ? `${latest.air_temp_c}°C` : "-";
+            document.getElementById("rMoisture").textContent = latest && latest.soil_moisture_pct != null ? `${latest.soil_moisture_pct}%` : "-";
+            document.getElementById("resTimestamp").textContent = latest ? `Updated: ${new Date(latest.timestamp).toLocaleString()}` : "";
+
+            const body = document.getElementById("historyBody");
+            body.innerHTML = "";
+            for (const r of readings.filter(r => r.soil_n !== null).slice(0, 5)) {
+                const tr = document.createElement("tr");
+                tr.className = "border-t";
+                tr.innerHTML = `<td class="py-1">${new Date(r.timestamp).toLocaleDateString()}</td><td class="py-1">${r.soil_ph}</td><td class="py-1">${r.air_temp_c}°C</td><td class="py-1">${r.predicted_crop || "-"}</td>`;
+                body.appendChild(tr);
+            }
+
+            document.getElementById("result").classList.remove("hidden");
+        }
+
+        document.getElementById("explainBtn").addEventListener("click", async (e) => {
+            if (!currentReadingId) return;
+            e.target.textContent = "Sandali lang...";
+            e.target.disabled = true;
+            try {
+                const res = await fetch(`${API}/readings/${currentReadingId}/explain`);
+                const data = await res.json();
+                document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
+            } catch {
+                document.getElementById("explainText").textContent = "Could not reach the offline AI model.";
+            }
+            e.target.textContent = "Bakit? / Why?";
+            e.target.disabled = false;
+        });
+
+        document.getElementById("farmSearchBtn").addEventListener("click", () => {
+            const farmName = document.getElementById("farmNameInput").value.trim();
+            if (farmName) lookupFarm(farmName);
+        });
+        document.getElementById("farmNameInput").addEventListener("keydown", (e) => {
+            if (e.key === "Enter") document.getElementById("farmSearchBtn").click();
+        });
+
+        const params = new URLSearchParams(location.search);
+        const urlFarm = params.get("farm");
+        const urlPlot = params.get("plot");
+        if (urlFarm) {
+            document.getElementById("farmNameInput").value = urlFarm;
+            lookupFarm(urlFarm);
+        } else if (urlPlot) {
+            lookup(urlPlot);
+        }
+    </script>
+</body></html>

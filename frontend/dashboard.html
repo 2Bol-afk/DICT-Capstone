@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Agri-Admin | Crop Recommendation Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="config.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#002204", "on-tertiary": "#ffffff", "tertiary": "#923357",
+                    "primary-fixed-dim": "#88d982", "on-primary-container": "#cbffc2", "on-secondary-container": "#735a00",
+                    "secondary": "#755b00", "surface-bright": "#f7fbf0", "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#7f2448", "secondary-container": "#fed255", "on-background": "#181d17",
+                    "on-tertiary-fixed": "#3f001c", "tertiary-fixed-dim": "#ffb1c7", "on-surface": "#181d17",
+                    "primary-fixed": "#a3f69c", "on-surface-variant": "#40493d", "tertiary-fixed": "#ffd9e2",
+                    "on-error-container": "#93000a", "surface-tint": "#1b6d24", "surface-variant": "#e0e4da",
+                    "surface-container": "#ebefe5", "inverse-primary": "#88d982", "surface-container-highest": "#e0e4da",
+                    "inverse-on-surface": "#eef2e8", "surface-container-low": "#f1f5eb", "outline-variant": "#bfcaba",
+                    "surface-container-lowest": "#ffffff", "on-secondary-fixed-variant": "#584400", "primary-container": "#2e7d32",
+                    "error": "#ba1a1a", "secondary-fixed-dim": "#ecc246", "on-secondary": "#ffffff",
+                    "surface": "#f7fbf0", "on-secondary-fixed": "#241a00", "on-primary-fixed-variant": "#005312",
+                    "inverse-surface": "#2d322b", "surface-dim": "#d7dbd2", "on-error": "#ffffff",
+                    "surface-container-high": "#e5eadf", "primary": "#0d631b", "on-tertiary-container": "#ffedf0",
+                    "outline": "#707a6c", "tertiary-container": "#b14b6f", "on-primary": "#ffffff",
+                    "background": "#f7fbf0", "secondary-fixed": "#ffe08e"
+            },
+            "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+            "spacing": { "card-gap": "24px", "container-padding": "24px", "base": "8px", "gutter": "16px", "section-margin": "48px" },
+            "fontFamily": { "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"] },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #f7f7f2; font-family: 'Plus Jakarta Sans', sans-serif; color: #181d17; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .custom-shadow { box-shadow: 0px 4px 12px rgba(31, 41, 55, 0.04); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .active-tab-glow { box-shadow: 0 0 15px rgba(136, 217, 130, 0.3); }
+        .hidden { display: none !important; }
+        html.dark body { background-color: #101410; color: #e5e9e2; }
+        html.dark .bg-surface, html.dark .bg-surface-container, html.dark .bg-surface-container-low,
+        html.dark .bg-surface-container-lowest, html.dark .bg-surface-container-high,
+        html.dark .bg-surface-container-highest, html.dark .bg-white { background-color: #1b211c !important; }
+        html.dark .bg-surface-dim { background-color: #11150f !important; }
+        html.dark .text-on-surface, html.dark .text-on-background { color: #e5e9e2 !important; }
+        html.dark .text-on-surface-variant, html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
+        html.dark .border-outline-variant, html.dark .border-outline, html.dark .border { border-color: #3a423a !important; }
+        .theme-option.active, .lang-option.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
+    </style>
+<script>
+        // ponytail: apply saved theme before paint to avoid a light->dark flash
+        if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+    </script>
+</head>
+<body class="flex h-screen overflow-hidden">
+<aside class="fixed left-0 top-0 h-screen flex flex-col p-base space-y-2 border-r border-outline-variant bg-surface-container w-64 md:w-72 z-40">
+<div class="px-4 py-6 mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">potted_plant</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-primary-fixed-variant leading-tight">Agri-Admin</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">PH Cooperatives Portal</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-base px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-semibold active-tab-glow" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">map</span>
+<span class="font-label-md text-label-md">Mapa ng Bukid / Farm Map</span>
+</a>
+<a class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-secondary-container hover:text-on-secondary-container rounded-lg font-semibold transition-colors" href="#" id="manageFarmersNav">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">Mga Magsasaka / Farmers</span>
+</a>
+<a class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-secondary-container hover:text-on-secondary-container rounded-lg font-semibold transition-colors" href="#" id="settingsNav">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Mga Setting / Settings</span>
+</a>
+</nav>
+<div class="pt-4 border-t border-outline-variant">
+<button class="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary-container transition-colors active:scale-95 duration-200" id="sidebarAddPlotBtn">
+<span class="material-symbols-outlined">add_circle</span>
+                Magdagdag ng Bukid
+            </button>
+</div>
+</aside>
+<main class="flex-1 ml-64 md:ml-72 flex flex-col h-full bg-background relative">
+<header class="sticky top-0 z-30 flex justify-between items-center w-full px-container-padding py-base bg-surface border-b border-outline-variant">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary">
+                    Dashboard ng Rekomendasyon sa Pananim / Crop Recommendation Dashboard
+                </h2>
+<span id="statusMsg" class="text-label-sm text-on-surface-variant"></span>
+</header>
+<div class="flex-1 flex overflow-hidden">
+<section class="flex-1 h-full relative flex flex-col min-w-0">
+<button class="absolute top-6 right-6 z-20 bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full custom-shadow font-bold flex items-center gap-2 hover:shadow-md transition-all active:scale-95" id="floatingAddPlotBtn">
+<span class="material-symbols-outlined">add_location_alt</span>
+                    Magdagdag ng Bukid / Add Plot
+                </button>
+<div class="flex-1 bg-surface-dim relative overflow-hidden" id="mapCanvas">
+<div class="w-full h-full" id="map"></div>
+<div class="absolute top-6 left-6 z-20 overflow-hidden bg-white rounded-xl border border-outline-variant custom-shadow p-4 space-y-2.5 min-w-[210px]" id="mapLegend">
+<p class="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant mb-1 whitespace-nowrap">Lehenda / Legend</p>
+<div id="legendFarmItems" class="hidden">
+<div class="flex items-center gap-3 text-label-sm whitespace-nowrap"><span class="w-3 h-4 shrink-0" style="background:#ea4335;clip-path:polygon(50% 100%,0 35%,0 0,100% 0,100% 35%)"></span><span>Lokasyon ng Bukid / Farm Location</span></div>
+<p class="text-[10px] text-on-surface-variant pt-1">I-click para mag-zoom in / Click to zoom in</p>
+</div>
+<div id="legendSensorItems" class="space-y-2.5"></div>
+</div>
+</div>
+</section>
+<aside class="w-0 h-full bg-surface-container border-l border-outline-variant overflow-hidden scrollbar-hide flex flex-col shrink-0 transition-[width] duration-200" id="detailPanel">
+<div id="panelEmpty" class="p-container-padding text-on-surface-variant text-label-md">
+                Select a pin on the map to view plot details. / Pumili ng pin sa mapa.
+            </div>
+<div id="panelContent" class="hidden flex-col flex-1">
+<div class="p-container-padding bg-surface-container-lowest border-b border-outline-variant">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold" id="panelOwner">-</h3>
+<p class="text-label-md text-on-surface-variant" id="panelPlotId">-</p>
+</div>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors" id="panelCloseBtn">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-1.5 text-label-sm text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">location_on</span>
+<span id="panelCoords">-</span>
+</div>
+</div>
+</div>
+<div class="p-container-padding space-y-gutter">
+<div class="bg-surface-container-lowest rounded-xl p-5 custom-shadow border-l-4 border-primary">
+<h4 class="font-label-sm text-label-sm text-primary uppercase tracking-wider mb-4">AI Rekomendasyon / AI Recommendation</h4>
+<div id="recHasCrop" class="flex items-center gap-4">
+<div class="w-16 h-16 bg-primary-fixed rounded-xl flex items-center justify-center text-on-primary-fixed-variant">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">agriculture</span>
+</div>
+<div class="flex-1">
+<p class="font-headline-md text-headline-md text-on-surface" id="recCrop">-</p>
+<div class="flex items-center gap-2 mt-1">
+<div class="flex-1 h-2 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-primary" id="recBar" style="width:0%"></div></div>
+<span class="text-label-md font-bold text-primary" id="recPct">-</span>
+</div>
+</div>
+</div>
+<p id="recMessage" class="text-label-sm text-on-surface-variant mt-3"></p>
+<button class="mt-3 text-label-sm text-primary font-bold hover:underline hidden" id="explainBtn">
+                    Bakit? / Why? (offline AI)
+                </button>
+<p id="explainText" class="text-label-sm text-on-surface-variant mt-2 italic"></p>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-5 custom-shadow">
+<h4 class="font-label-sm text-label-sm text-on-surface-variant mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">sensors</span>
+                            Pinakahuling Pagbasa / Latest Sensor Readings
+                        </h4>
+<div class="grid grid-cols-2 gap-3" id="readingsGrid">
+<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Nitrogen (N)</p><p class="text-headline-sm text-primary" id="rN">-</p></div>
+<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Phosphorus (P)</p><p class="text-headline-sm text-primary" id="rP">-</p></div>
+<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Potassium (K)</p><p class="text-headline-sm text-primary" id="rK">-</p></div>
+<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">pH Level</p><p class="text-headline-sm text-primary" id="rPh">-</p></div>
+<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Temperature</p><p class="text-headline-sm text-on-surface" id="rTemp">-</p></div>
+<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Moisture</p><p class="text-headline-sm text-on-surface" id="rMoisture">-</p></div>
+</div>
+<div class="flex gap-2 mt-4">
+<button class="flex-1 py-2 border border-primary text-primary rounded-lg font-bold text-label-md hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2" id="addReadingBtn">
+<span class="material-symbols-outlined text-[20px]">add</span> Add Reading
+</button>
+<button class="flex-1 py-2 border border-secondary text-secondary rounded-lg font-bold text-label-md hover:bg-secondary hover:text-white transition-all flex items-center justify-center gap-2" id="simulateBtn">
+<span class="material-symbols-outlined text-[20px]">casino</span> Simulate
+</button>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-5 custom-shadow">
+<h4 class="font-label-sm text-label-sm text-on-surface-variant mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">history</span> Kasaysayan ng Pagbasa / Reading History
+                            </h4>
+<div class="overflow-hidden border border-outline-variant rounded-lg">
+<table class="w-full text-left text-label-sm">
+<thead class="bg-surface-container text-on-surface-variant">
+<tr><th class="px-3 py-2 font-bold uppercase text-[10px]">Date</th><th class="px-3 py-2 font-bold uppercase text-[10px]">pH</th><th class="px-3 py-2 font-bold uppercase text-[10px]">Temp</th><th class="px-3 py-2 font-bold uppercase text-[10px]">Crop</th></tr>
+</thead>
+<tbody class="divide-y divide-outline-variant" id="historyBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+
+<!-- Add Plot Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="addPlotModal">
+<div class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+<h2 class="font-headline-md text-headline-md text-on-surface">Magdagdag ng Bukid <span class="text-on-surface-variant font-medium">/ Add Farm</span></h2>
+<button class="text-on-surface-variant hover:text-error transition-colors" id="addPlotCloseBtn"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="p-8 space-y-6" id="addPlotForm">
+<div class="space-y-2">
+<label class="block text-label-md font-label-md text-on-surface-variant">Pangalan ng Bukid <span class="italic">/ Farm Name (used to log in)</span></label>
+<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="farmNameInput" placeholder="dela-cruz-farm" required type="text">
+</div>
+<div class="space-y-2">
+<label class="block text-label-md font-label-md text-on-surface-variant">Pangalan ng May-ari <span class="italic">/ Owner Name</span></label>
+<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="plotOwnerInput" placeholder="Juan Dela Cruz" required type="text">
+</div>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<p class="text-label-md font-label-md text-primary">Draw the farm boundary / I-guhit ang hangganan</p>
+<button class="text-label-sm font-bold text-primary flex items-center gap-1" id="locateMeBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">my_location</span> Use my location
+</button>
+</div>
+<div class="relative w-full h-64 rounded-xl overflow-hidden border border-outline-variant bg-surface-container" id="addPlotMapDiv"></div>
+<div class="flex items-center justify-between">
+<div class="text-[11px] font-medium text-on-surface-variant" id="addPlotLatLng">Click the map to place corner points (3+), then Finish Shape.</div>
+<div class="flex gap-2">
+<button class="text-label-sm font-bold text-on-surface-variant" id="clearShapeBtn" type="button">Clear</button>
+<button class="text-label-sm font-bold text-primary" id="finishShapeBtn" type="button">Finish Shape</button>
+</div>
+</div>
+<div class="text-label-sm font-bold text-on-surface hidden" id="addPlotSensorInfo"></div>
+</div>
+</form>
+<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-outline text-on-surface-variant font-semibold" id="addPlotCancelBtn" type="button">Cancel</button>
+<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold" id="addPlotConfirmBtn" type="submit" form="addPlotForm">Confirm</button>
+</div>
+</div>
+</div>
+
+<!-- Farm Detail Modal (Edit/Delete) -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="farmDetailModal">
+<div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Farm Details</h3>
+<button class="p-2 hover:bg-surface-container-low rounded-full" id="farmDetailCloseBtn"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="p-8 space-y-5" id="farmDetailForm">
+<div class="space-y-2">
+<label class="block text-label-md font-label-md text-on-surface-variant">Farm Name</label>
+<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="farmDetailNameInput" required type="text">
+</div>
+<div class="space-y-2">
+<label class="block text-label-md font-label-md text-on-surface-variant">Owner Name</label>
+<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="farmDetailOwnerInput" type="text">
+</div>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<p class="text-label-md font-label-md text-primary">Hangganan / Boundary &amp; Location</p>
+<button class="text-label-sm font-bold text-primary" id="farmDetailRedrawBtn" type="button">Redraw</button>
+</div>
+<div class="relative w-full h-56 rounded-xl overflow-hidden border border-outline-variant bg-surface-container" id="farmDetailMapDiv"></div>
+<div class="flex items-center justify-between">
+<div class="text-[11px] font-medium text-on-surface-variant" id="farmDetailBoundaryHint">Click "Redraw" to change the boundary.</div>
+<div class="flex gap-2 hidden" id="farmDetailShapeBtns">
+<button class="text-label-sm font-bold text-on-surface-variant" id="farmDetailClearBtn" type="button">Clear</button>
+<button class="text-label-sm font-bold text-primary" id="farmDetailFinishBtn" type="button">Finish Shape</button>
+</div>
+</div>
+</div>
+<p class="text-label-sm text-on-surface-variant" id="farmDetailMeta"></p>
+</form>
+<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-between gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-error text-error font-semibold" id="farmDetailDeleteBtn" type="button">Delete Farm</button>
+<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold" type="submit" form="farmDetailForm">Save</button>
+</div>
+</div>
+</div>
+
+<!-- Settings Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="settingsModal">
+<div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Mga Setting / Settings</h3>
+<button class="p-2 hover:bg-surface-container-low rounded-full" id="settingsCloseBtn"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="p-8 space-y-6">
+<div class="space-y-2">
+<label class="block text-label-md font-label-md text-on-surface-variant">Tema / Theme</label>
+<div class="flex gap-2">
+<button class="theme-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-theme="light" type="button">Light</button>
+<button class="theme-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-theme="dark" type="button">Dark</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-label-md font-label-md text-on-surface-variant">Wika / Language</label>
+<div class="flex gap-2">
+<button class="lang-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-lang="both" type="button">Both</button>
+<button class="lang-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-lang="fil" type="button">Tagalog</button>
+<button class="lang-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-lang="en" type="button">English</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Farmers List Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="farmersListModal">
+<div class="bg-surface-container-lowest w-full max-w-lg rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Mga Magsasaka / Farmers</h3>
+<button class="p-2 hover:bg-surface-container-low rounded-full" id="farmersListCloseBtn"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div class="p-4 overflow-y-auto flex-1 space-y-2" id="farmersListBody"></div>
+</div>
+</div>
+
+<!-- Add Reading Modal -->
+<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="addReadingModal">
+<div class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden">
+<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Magdagdag ng Pagbasa / Add Reading</h3>
+<button class="p-2 hover:bg-surface-container-low rounded-full" id="addReadingCloseBtn"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5" id="addReadingForm">
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Nitrogen (N) mg/kg</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inN" required type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Phosphorus (P) mg/kg</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inP" required type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Potassium (K) mg/kg</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inK" required type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">pH Level</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inPh" required step="0.1" type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Temperature (°C)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inTemp" required step="0.1" type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Humidity (%)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inHumidity" required type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Rainfall (mm)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inRainfall" required type="number"></div>
+<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Soil Moisture (%)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inMoisture" type="number"></div>
+</form>
+<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-outline text-on-surface-variant font-semibold" id="addReadingCancelBtn" type="button">Cancel</button>
+<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold" type="submit" form="addReadingForm">Save</button>
+</div>
+</div>
+</div>
+
+<script>
+        const API = "http://127.0.0.1:8000";
+        const PH_CENTER = { lat: 12.8797, lng: 121.7740 };
+
+        let plots = [];
+        let selectedPlotId = null;
+        let latestReadingId = null;
+        let map = null;
+        let markers = [];
+        let farmPolygons = [];
+        let addPlotMapObj = null;
+        let pendingVertices = [];
+        let vertexMarkers = [];
+        let pendingPolygon = null;
+        let pendingHectares = null;
+        let shapeFinished = false;
+
+        function pinColor(plot) {
+            if (!plot.predicted_crop) return "#9ca3af";
+            return plot.confidence >= 0.6 ? "#2e7d32" : "#d97706";
+        }
+
+        const SENSOR_ZOOM_THRESHOLD = 14; // below this, show one pin per farm instead of every sensor
+
+        function sensorIconUrl(color) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24">
+                <circle cx="12" cy="16" r="3.2" fill="${color}" stroke="#fff" stroke-width="1"/>
+                <path d="M7.5 12.5a6.5 6.5 0 0 1 9 0" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <path d="M4.5 9a10.5 10.5 0 0 1 15 0" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55"/>
+            </svg>`;
+            return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+        }
+
+        function buildSensorLegend() {
+            const items = [
+                ["#2e7d32", "Mataas na Kumpiyansa / High Confidence"],
+                ["#d97706", "Mababang Kumpiyansa / Low Confidence"],
+                ["#9ca3af", "Walang Katugma / No Match"],
+            ];
+            document.getElementById("legendSensorItems").innerHTML = items.map(([color, label]) => `
+                <div class="flex items-center gap-3 text-label-sm whitespace-nowrap">
+                    <img class="w-5 h-5 shrink-0" src="${sensorIconUrl(color)}">
+                    <span>${label}</span>
+                </div>
+            `).join("");
+        }
+
+        function farmCentroid(farm) {
+            const lats = farm.polygon.map(p => p[0]);
+            const lngs = farm.polygon.map(p => p[1]);
+            return { lat: lats.reduce((a, b) => a + b, 0) / lats.length, lng: lngs.reduce((a, b) => a + b, 0) / lngs.length };
+        }
+
+        function updateMapZoomView() {
+            const zoomedIn = map.getZoom() >= SENSOR_ZOOM_THRESHOLD;
+            markers.forEach(m => m.setMap(zoomedIn ? map : null));
+            farmMarkers.forEach(m => m.setMap(zoomedIn ? null : map));
+            document.getElementById("legendSensorItems").classList.toggle("hidden", !zoomedIn);
+            document.getElementById("legendFarmItems").classList.toggle("hidden", zoomedIn);
+        }
+
+        function setStatus(msg) {
+            document.getElementById("statusMsg").textContent = msg;
+        }
+
+        function initMaps() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: PH_CENTER,
+                zoom: 6,
+            });
+            addPlotMapObj = new google.maps.Map(document.getElementById("addPlotMapDiv"), {
+                center: PH_CENTER,
+                zoom: 6,
+            });
+
+            // ponytail: DrawingManager was removed from Maps JS (v3.65+) — place vertices by hand instead
+            addPlotMapObj.addListener("click", (e) => {
+                if (shapeFinished) return;
+                pendingVertices.push({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+                redrawPendingShape();
+            });
+
+            map.addListener("zoom_changed", updateMapZoomView);
+            buildSensorLegend();
+            updateMapZoomView();
+
+            loadPlots().catch(() => setStatus("Could not reach backend at " + API));
+            loadFarms().catch(() => {});
+        }
+
+        function redrawPendingShape() {
+            if (pendingPolygon) pendingPolygon.setMap(null);
+            vertexMarkers.forEach(m => m.setMap(null));
+            vertexMarkers = pendingVertices.map(v => new google.maps.Marker({
+                position: v, map: addPlotMapObj,
+                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: "#2e7d32", fillOpacity: 1, strokeWeight: 0 },
+            }));
+            pendingPolygon = pendingVertices.length >= 2
+                ? new google.maps.Polygon({
+                    paths: pendingVertices, map: addPlotMapObj,
+                    fillColor: "#2e7d32", fillOpacity: 0.2, strokeColor: "#2e7d32", strokeWeight: 2,
+                })
+                : null;
+        }
+
+        document.getElementById("finishShapeBtn").addEventListener("click", () => {
+            if (pendingVertices.length < 3) { alert("Place at least 3 points to form a shape."); return; }
+            shapeFinished = true;
+            pendingHectares = google.maps.geometry.spherical.computeArea(pendingVertices) / 10000;
+            const sensorCount = Math.min(30, Math.max(1, Math.round(pendingHectares * 5)));
+            document.getElementById("addPlotLatLng").textContent = `Hectares: ${pendingHectares.toFixed(2)}`;
+            const info = document.getElementById("addPlotSensorInfo");
+            info.textContent = `Suggested sensors: ${sensorCount} (5/hectare)`;
+            info.classList.remove("hidden");
+        });
+
+        document.getElementById("clearShapeBtn").addEventListener("click", () => {
+            pendingVertices = [];
+            shapeFinished = false;
+            pendingHectares = null;
+            if (pendingPolygon) { pendingPolygon.setMap(null); pendingPolygon = null; }
+            vertexMarkers.forEach(m => m.setMap(null));
+            vertexMarkers = [];
+            document.getElementById("addPlotLatLng").textContent = "Click the map to place corner points (3+), then Finish Shape.";
+            document.getElementById("addPlotSensorInfo").classList.add("hidden");
+        });
+
+        document.getElementById("locateMeBtn").addEventListener("click", () => {
+            if (!navigator.geolocation) { setStatus("This browser has no geolocation support."); return; }
+            if (location.protocol === "file:") {
+                setStatus("Geolocation is blocked on file:// pages — serve this folder over http(s) instead.");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                addPlotMapObj.setCenter(here);
+                addPlotMapObj.setZoom(17);
+            }, (err) => setStatus(`Could not get your location (${err.message}).`));
+        });
+
+        let farms = [];
+        let farmMarkers = [];
+
+        async function loadFarms() {
+            const res = await fetch(`${API}/farms`);
+            farms = await res.json();
+            farmPolygons.forEach(p => p.setMap(null));
+            farmPolygons = farms.map(farm => {
+                const poly = new google.maps.Polygon({
+                    paths: farm.polygon.map(([lat, lng]) => ({ lat, lng })),
+                    map: map,
+                    fillColor: "#2e7d32", fillOpacity: 0.12, strokeColor: "#2e7d32", strokeWeight: 2,
+                });
+                poly.addListener("click", () => openFarmDetail(farm));
+                return poly;
+            });
+
+            farmMarkers.forEach(m => m.setMap(null));
+            farmMarkers = farms.map(farm => {
+                const marker = new google.maps.Marker({
+                    position: farmCentroid(farm),
+                    title: farm.farm_name || farm.farm_id,
+                });
+                marker.addListener("click", () => {
+                    map.setCenter(farmCentroid(farm));
+                    map.setZoom(SENSOR_ZOOM_THRESHOLD + 2);
+                });
+                return marker;
+            });
+            updateMapZoomView();
+        }
+
+        // --- Farm Detail modal (Edit/Delete, incl. boundary/location redraw) ---
+        const farmDetailModal = document.getElementById("farmDetailModal");
+        let selectedFarmId = null;
+        let farmDetailMapObj = null;
+        let detailVertices = [];
+        let detailVertexMarkers = [];
+        let detailPolygonOverlay = null;
+        let detailHectares = null;
+        let detailEditing = false;
+
+        function redrawDetailShape() {
+            if (detailPolygonOverlay) detailPolygonOverlay.setMap(null);
+            detailVertexMarkers.forEach(m => m.setMap(null));
+            detailVertexMarkers = detailVertices.map(v => new google.maps.Marker({
+                position: v, map: farmDetailMapObj,
+                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: "#0d631b", fillOpacity: 1, strokeWeight: 0 },
+            }));
+            detailPolygonOverlay = detailVertices.length >= 2
+                ? new google.maps.Polygon({
+                    paths: detailVertices, map: farmDetailMapObj,
+                    fillColor: "#0d631b", fillOpacity: 0.2, strokeColor: "#0d631b", strokeWeight: 2,
+                })
+                : null;
+        }
+
+        function setDetailEditing(editing) {
+            detailEditing = editing;
+            document.getElementById("farmDetailShapeBtns").classList.toggle("hidden", !editing);
+            document.getElementById("farmDetailBoundaryHint").textContent = editing
+                ? "Click the map to place corner points (3+), then Finish Shape."
+                : "Click \"Redraw\" to change the boundary.";
+        }
+
+        function openFarmDetail(farm) {
+            selectedFarmId = farm.farm_id;
+            document.getElementById("farmDetailNameInput").value = farm.farm_name || "";
+            document.getElementById("farmDetailOwnerInput").value = farm.owner_name || "";
+            document.getElementById("farmDetailMeta").textContent = `${farm.hectares.toFixed(2)} hectares — ${farm.farm_id}`;
+
+            detailVertices = farm.polygon.map(([lat, lng]) => ({ lat, lng }));
+            detailHectares = farm.hectares;
+            setDetailEditing(false);
+            farmDetailModal.classList.remove("hidden");
+
+            if (!farmDetailMapObj) {
+                farmDetailMapObj = new google.maps.Map(document.getElementById("farmDetailMapDiv"), { center: PH_CENTER, zoom: 6 });
+                farmDetailMapObj.addListener("click", (e) => {
+                    if (!detailEditing) return;
+                    detailVertices.push({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+                    redrawDetailShape();
+                });
+            }
+            setTimeout(() => {
+                google.maps.event.trigger(farmDetailMapObj, "resize");
+                const bounds = new google.maps.LatLngBounds();
+                detailVertices.forEach(v => bounds.extend(v));
+                farmDetailMapObj.fitBounds(bounds);
+                redrawDetailShape();
+            }, 0);
+        }
+        document.getElementById("farmDetailCloseBtn").addEventListener("click", () => farmDetailModal.classList.add("hidden"));
+
+        document.getElementById("farmDetailRedrawBtn").addEventListener("click", () => {
+            detailVertices = [];
+            detailHectares = null;
+            if (detailPolygonOverlay) { detailPolygonOverlay.setMap(null); detailPolygonOverlay = null; }
+            detailVertexMarkers.forEach(m => m.setMap(null));
+            detailVertexMarkers = [];
+            setDetailEditing(true);
+        });
+
+        document.getElementById("farmDetailClearBtn").addEventListener("click", () => {
+            detailVertices = [];
+            if (detailPolygonOverlay) { detailPolygonOverlay.setMap(null); detailPolygonOverlay = null; }
+            detailVertexMarkers.forEach(m => m.setMap(null));
+            detailVertexMarkers = [];
+        });
+
+        document.getElementById("farmDetailFinishBtn").addEventListener("click", () => {
+            if (detailVertices.length < 3) { alert("Place at least 3 points to form a shape."); return; }
+            detailHectares = google.maps.geometry.spherical.computeArea(detailVertices) / 10000;
+            setDetailEditing(false);
+            document.getElementById("farmDetailBoundaryHint").textContent = `New hectares: ${detailHectares.toFixed(2)} — Save to apply.`;
+        });
+
+        document.getElementById("farmDetailForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (detailVertices.length < 3) { alert("The farm needs at least 3 boundary points."); return; }
+            const res = await fetch(`${API}/farms/${encodeURIComponent(selectedFarmId)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    farm_name: document.getElementById("farmDetailNameInput").value,
+                    owner_name: document.getElementById("farmDetailOwnerInput").value,
+                    hectares: detailHectares,
+                    polygon: detailVertices.map(v => [v.lat, v.lng]),
+                }),
+            });
+            if (!res.ok) { const err = await res.json(); alert(err.detail || "Could not update farm."); return; }
+            farmDetailModal.classList.add("hidden");
+            setStatus("Farm updated");
+            await loadFarms();
+            renderFarmersList();
+        });
+
+        document.getElementById("farmDetailDeleteBtn").addEventListener("click", async () => {
+            if (!confirm("Delete this farm and all its sensor sub-plots? This cannot be undone.")) return;
+            await fetch(`${API}/farms/${encodeURIComponent(selectedFarmId)}`, { method: "DELETE" });
+            farmDetailModal.classList.add("hidden");
+            setStatus("Farm deleted");
+            await loadFarms();
+            await loadPlots();
+            renderFarmersList();
+        });
+
+        // --- Settings: theme + language ---
+        // ponytail: bilingual labels are hardcoded as "Tagalog / English" text — split them
+        // generically at runtime instead of hand-wrapping every string in spans.
+        function wrapBilingualText(root) {
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            const nodes = [];
+            let n;
+            while ((n = walker.nextNode())) nodes.push(n);
+            for (const node of nodes) {
+                const text = node.nodeValue;
+                const idx = text.indexOf(" / ");
+                if (idx === -1 || !node.parentNode || node.parentNode.closest("script, style")) continue;
+                const filSpan = document.createElement("span");
+                filSpan.className = "lang-fil";
+                filSpan.textContent = text.slice(0, idx);
+                const sepSpan = document.createElement("span");
+                sepSpan.className = "lang-sep";
+                sepSpan.textContent = " / ";
+                const enSpan = document.createElement("span");
+                enSpan.className = "lang-en";
+                enSpan.textContent = text.slice(idx + 3);
+                const parent = node.parentNode;
+                parent.insertBefore(filSpan, node);
+                parent.insertBefore(sepSpan, node);
+                parent.insertBefore(enSpan, node);
+                parent.removeChild(node);
+            }
+        }
+
+        function applyLanguage(pref) {
+            document.querySelectorAll(".lang-fil").forEach(el => el.style.display = pref === "en" ? "none" : "");
+            document.querySelectorAll(".lang-en, span.italic").forEach(el => el.style.display = pref === "fil" ? "none" : "");
+            document.querySelectorAll(".lang-sep").forEach(el => el.style.display = pref === "both" ? "" : "none");
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.classList.toggle("dark", theme === "dark");
+        }
+
+        wrapBilingualText(document.body);
+        const savedTheme = localStorage.getItem("theme") || "light";
+        const savedLang = localStorage.getItem("lang") || "both";
+        applyTheme(savedTheme);
+        applyLanguage(savedLang);
+
+        const settingsModal = document.getElementById("settingsModal");
+        function refreshSettingsUI() {
+            document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === (localStorage.getItem("theme") || "light")));
+            document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === (localStorage.getItem("lang") || "both")));
+        }
+        document.getElementById("settingsNav").addEventListener("click", (e) => {
+            e.preventDefault();
+            refreshSettingsUI();
+            settingsModal.classList.remove("hidden");
+        });
+        document.getElementById("settingsCloseBtn").addEventListener("click", () => settingsModal.classList.add("hidden"));
+        document.querySelectorAll(".theme-option").forEach(btn => btn.addEventListener("click", () => {
+            localStorage.setItem("theme", btn.dataset.theme);
+            applyTheme(btn.dataset.theme);
+            refreshSettingsUI();
+        }));
+        document.querySelectorAll(".lang-option").forEach(btn => btn.addEventListener("click", () => {
+            localStorage.setItem("lang", btn.dataset.lang);
+            applyLanguage(btn.dataset.lang);
+            refreshSettingsUI();
+        }));
+
+        // --- Farmers list modal ---
+        const farmersListModal = document.getElementById("farmersListModal");
+
+        function renderFarmersList() {
+            const body = document.getElementById("farmersListBody");
+            body.innerHTML = "";
+            if (!farms.length) {
+                body.innerHTML = `<p class="text-label-md text-on-surface-variant p-4">No farms registered yet.</p>`;
+                return;
+            }
+            for (const farm of farms) {
+                const row = document.createElement("button");
+                row.type = "button";
+                row.className = "w-full flex items-center justify-between p-4 bg-surface-container-low hover:bg-surface-container rounded-lg text-left transition-colors";
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold text-on-surface">${farm.farm_name || "(no name)"}</p>
+                        <p class="text-label-sm text-on-surface-variant">${farm.owner_name || "-"} &middot; ${farm.hectares.toFixed(2)} ha</p>
+                    </div>
+                    <span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+                `;
+                row.addEventListener("click", () => {
+                    farmersListModal.classList.add("hidden");
+                    openFarmDetail(farm);
+                });
+                body.appendChild(row);
+            }
+        }
+
+        document.getElementById("manageFarmersNav").addEventListener("click", async (e) => {
+            e.preventDefault();
+            await loadFarms();
+            renderFarmersList();
+            farmersListModal.classList.remove("hidden");
+        });
+        document.getElementById("farmersListCloseBtn").addEventListener("click", () => farmersListModal.classList.add("hidden"));
+
+        // GOOGLE_MAPS_API_KEY comes from config.js (gitignored, not this file)
+        const mapsScript = document.createElement("script");
+        mapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry&callback=initMaps&loading=async`;
+        mapsScript.async = true;
+        document.head.appendChild(mapsScript);
+
+        async function loadPlots() {
+            const res = await fetch(`${API}/plots`);
+            plots = await res.json();
+            renderPins();
+            if (selectedPlotId) selectPlot(selectedPlotId);
+        }
+
+        function renderPins() {
+            markers.forEach(m => m.setMap(null));
+            markers = [];
+            const zoomedIn = map.getZoom() >= SENSOR_ZOOM_THRESHOLD;
+            for (const plot of plots) {
+                const marker = new google.maps.Marker({
+                    position: { lat: plot.lat, lng: plot.lng },
+                    map: zoomedIn ? map : null,
+                    title: `${plot.owner_name || plot.plot_id} (${plot.predicted_crop || "no match"})`,
+                    icon: {
+                        url: sensorIconUrl(pinColor(plot)),
+                        scaledSize: new google.maps.Size(30, 30),
+                        anchor: new google.maps.Point(15, 22),
+                    },
+                });
+                marker.addListener("click", () => selectPlot(plot.plot_id));
+                markers.push(marker);
+            }
+        }
+
+        function setPanelOpen(open) {
+            const aside = document.getElementById("detailPanel");
+            aside.classList.toggle("w-0", !open);
+            aside.classList.toggle("overflow-hidden", !open);
+            aside.classList.toggle("w-full", open);
+            aside.classList.toggle("md:w-[420px]", open);
+            aside.classList.toggle("overflow-y-auto", open);
+        }
+
+        async function selectPlot(plotId) {
+            selectedPlotId = plotId;
+            setPanelOpen(true);
+            document.getElementById("panelEmpty").classList.add("hidden");
+            document.getElementById("panelContent").classList.remove("hidden");
+
+            const res = await fetch(`${API}/readings/${plotId}`);
+            const readings = await res.json();
+            const latest = readings.find(r => r.soil_n !== null) || null;
+            const head = readings[0];
+
+            document.getElementById("panelOwner").textContent = head.owner_name || "-";
+            document.getElementById("panelPlotId").textContent = `Plot ID: ${plotId}`;
+            document.getElementById("panelCoords").textContent = `${head.lat.toFixed(4)}° N, ${head.lng.toFixed(4)}° E`;
+
+            latestReadingId = latest ? latest.id : null;
+            document.getElementById("explainText").textContent = "";
+            const explainBtn = document.getElementById("explainBtn");
+            explainBtn.textContent = "Bakit? / Why? (offline AI)";
+
+            if (latest && latest.predicted_crop) {
+                document.getElementById("recCrop").textContent = latest.predicted_crop;
+                document.getElementById("recPct").textContent = Math.round(latest.confidence * 100) + "%";
+                document.getElementById("recBar").style.width = Math.round(latest.confidence * 100) + "%";
+                document.getElementById("recMessage").textContent = "";
+                explainBtn.classList.remove("hidden");
+            } else if (latest) {
+                document.getElementById("recCrop").textContent = "No confident match";
+                document.getElementById("recPct").textContent = "-";
+                document.getElementById("recBar").style.width = "0%";
+                document.getElementById("recMessage").textContent = latest.message || "No confident PH-relevant match for this reading.";
+                explainBtn.classList.add("hidden");
+            } else {
+                document.getElementById("recCrop").textContent = "No readings yet";
+                document.getElementById("recPct").textContent = "-";
+                document.getElementById("recBar").style.width = "0%";
+                document.getElementById("recMessage").textContent = "Add a reading to get a recommendation.";
+                explainBtn.classList.add("hidden");
+            }
+
+            document.getElementById("rN").textContent = latest ? latest.soil_n : "-";
+            document.getElementById("rP").textContent = latest ? latest.soil_p : "-";
+            document.getElementById("rK").textContent = latest ? latest.soil_k : "-";
+            document.getElementById("rPh").textContent = latest ? latest.soil_ph : "-";
+            document.getElementById("rTemp").textContent = latest ? `${latest.air_temp_c}°C` : "-";
+            document.getElementById("rMoisture").textContent = latest && latest.soil_moisture_pct != null ? `${latest.soil_moisture_pct}%` : "-";
+
+            const historyBody = document.getElementById("historyBody");
+            historyBody.innerHTML = "";
+            for (const r of readings.filter(r => r.soil_n !== null).slice(0, 5)) {
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-surface-container-low transition-colors";
+                tr.innerHTML = `<td class="px-3 py-2">${new Date(r.timestamp).toLocaleDateString()}</td><td class="px-3 py-2">${r.soil_ph}</td><td class="px-3 py-2">${r.air_temp_c}°C</td><td class="px-3 py-2">${r.predicted_crop || "-"}</td>`;
+                historyBody.appendChild(tr);
+            }
+        }
+
+        document.getElementById("panelCloseBtn").addEventListener("click", () => {
+            selectedPlotId = null;
+            setPanelOpen(false);
+            document.getElementById("panelContent").classList.add("hidden");
+            document.getElementById("panelEmpty").classList.remove("hidden");
+        });
+
+        // --- Add Plot modal ---
+        const addPlotModal = document.getElementById("addPlotModal");
+
+        function openAddPlot() {
+            pendingVertices = [];
+            pendingHectares = null;
+            shapeFinished = false;
+            document.getElementById("addPlotForm").reset();
+            document.getElementById("addPlotLatLng").textContent = "Click the map to place corner points (3+), then Finish Shape.";
+            document.getElementById("addPlotSensorInfo").classList.add("hidden");
+            if (pendingPolygon) { pendingPolygon.setMap(null); pendingPolygon = null; }
+            vertexMarkers.forEach(m => m.setMap(null));
+            vertexMarkers = [];
+            addPlotModal.classList.remove("hidden");
+            if (!addPlotMapObj) {
+                setStatus("Map still loading — wait a second and try again.");
+                return;
+            }
+            // map was sized 0x0 while the modal was hidden — re-trigger layout now that it's visible
+            setTimeout(() => {
+                google.maps.event.trigger(addPlotMapObj, "resize");
+                addPlotMapObj.setCenter(PH_CENTER);
+            }, 0);
+        }
+        document.getElementById("sidebarAddPlotBtn").addEventListener("click", openAddPlot);
+        document.getElementById("floatingAddPlotBtn").addEventListener("click", openAddPlot);
+        document.getElementById("addPlotCloseBtn").addEventListener("click", () => addPlotModal.classList.add("hidden"));
+        document.getElementById("addPlotCancelBtn").addEventListener("click", () => addPlotModal.classList.add("hidden"));
+
+        document.getElementById("addPlotForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!shapeFinished) { alert("Draw the farm boundary and click Finish Shape first."); return; }
+            const res = await fetch(`${API}/farms`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    farm_name: document.getElementById("farmNameInput").value,
+                    owner_name: document.getElementById("plotOwnerInput").value,
+                    hectares: pendingHectares,
+                    polygon: pendingVertices.map(v => [v.lat, v.lng]),
+                }),
+            });
+            if (!res.ok) { const err = await res.json(); alert(err.detail || "Could not create farm."); return; }
+            const farm = await res.json();
+            addPlotModal.classList.add("hidden");
+            setStatus(`Added farm ${farm.farm_name} with ${farm.sensor_count} sensors`);
+            alert(`"${farm.farm_name}" is now registered. The farmer can log in on farmer.html using this exact farm name: "${farm.farm_name}".`);
+            await loadPlots();
+            await loadFarms();
+        });
+
+        // --- Add Reading modal ---
+        const addReadingModal = document.getElementById("addReadingModal");
+        document.getElementById("addReadingBtn").addEventListener("click", () => {
+            document.getElementById("addReadingForm").reset();
+            addReadingModal.classList.remove("hidden");
+        });
+        document.getElementById("addReadingCloseBtn").addEventListener("click", () => addReadingModal.classList.add("hidden"));
+        document.getElementById("addReadingCancelBtn").addEventListener("click", () => addReadingModal.classList.add("hidden"));
+
+        document.getElementById("addReadingForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const plot = plots.find(p => p.plot_id === selectedPlotId);
+            await fetch(`${API}/readings`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    plot_id: selectedPlotId,
+                    owner_name: plot.owner_name,
+                    lat: plot.lat,
+                    lng: plot.lng,
+                    soil_n: parseFloat(document.getElementById("inN").value),
+                    soil_p: parseFloat(document.getElementById("inP").value),
+                    soil_k: parseFloat(document.getElementById("inK").value),
+                    soil_ph: parseFloat(document.getElementById("inPh").value),
+                    air_temp_c: parseFloat(document.getElementById("inTemp").value),
+                    humidity_pct: parseFloat(document.getElementById("inHumidity").value),
+                    rainfall_mm: parseFloat(document.getElementById("inRainfall").value),
+                    soil_moisture_pct: document.getElementById("inMoisture").value ? parseFloat(document.getElementById("inMoisture").value) : null,
+                }),
+            });
+            addReadingModal.classList.add("hidden");
+            setStatus("Reading added");
+            await loadPlots();
+        });
+
+        // --- Explain (offline AI) ---
+        document.getElementById("explainBtn").addEventListener("click", async (e) => {
+            if (!latestReadingId) return;
+            e.target.textContent = "Thinking... (this can take a while on CPU)";
+            e.target.disabled = true;
+            try {
+                const res = await fetch(`${API}/readings/${latestReadingId}/explain`);
+                const data = await res.json();
+                document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
+            } catch {
+                document.getElementById("explainText").textContent = "Could not reach the offline AI model.";
+            }
+            e.target.textContent = "Bakit? / Why? (offline AI)";
+            e.target.disabled = false;
+        });
+
+        // --- Simulate ---
+        document.getElementById("simulateBtn").addEventListener("click", async () => {
+            if (!selectedPlotId) return;
+            setStatus("Simulating...");
+            await fetch(`${API}/readings/simulate?plot_id=${encodeURIComponent(selectedPlotId)}`, { method: "POST" });
+            setStatus("Simulated reading added");
+            await loadPlots();
+        });
+    </script>
+</body></html>

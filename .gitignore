@@ -1,0 +1,5 @@
+frontend/config.js
+readings.db
+
+__pycache__/
+*.pyc

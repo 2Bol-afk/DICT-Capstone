@@ -1,0 +1,49 @@
+"""Reset the DB and seed a presentable demo dataset via the live API.
+
+ponytail: deletes readings.db and starts fresh — this is simulated demo
+data only, safe to wipe and regenerate any time.
+"""
+import random
+import time
+
+import requests
+
+API = "http://127.0.0.1:8000"
+DB_PATH = "readings.db"
+READINGS_PER_PLOT = 3
+NUM_PLOTS = 8
+
+PH_LAT_RANGE = (5.0, 19.0)
+PH_LNG_RANGE = (117.0, 127.0)
+OWNER_NAMES = [
+    "Juan Dela Cruz", "Maria Santos", "Pedro Reyes", "Ana Garcia",
+    "Jose Ramos", "Rosa Flores", "Carlos Mendoza", "Liza Bautista",
+]
+
+
+def main():
+    # NOTE: delete readings.db and restart the backend (so its startup hook
+    # re-runs init_db()) before running this script.
+    for i, owner in enumerate(OWNER_NAMES[:NUM_PLOTS], start=1):
+        plot_id = f"FARM-{i:03d}"
+        plot = {
+            "plot_id": plot_id,
+            "owner_name": owner,
+            "lat": round(random.uniform(*PH_LAT_RANGE), 4),
+            "lng": round(random.uniform(*PH_LNG_RANGE), 4),
+        }
+        requests.post(f"{API}/plots", json=plot).raise_for_status()
+        print(f"Created {plot_id} ({owner})")
+
+        for _ in range(READINGS_PER_PLOT):
+            res = requests.post(f"{API}/readings/simulate", params={"plot_id": plot_id})
+            res.raise_for_status()
+            r = res.json()
+            print(f"  reading -> predicted={r['predicted_crop']} confidence={r['confidence']}")
+            time.sleep(0.05)  # keeps timestamps distinct for history ordering
+
+    print(f"\nSeeded {NUM_PLOTS} plots with {READINGS_PER_PLOT} readings each.")
+
+
+if __name__ == "__main__":
+    main()
