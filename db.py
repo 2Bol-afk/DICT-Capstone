@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS farms (
 )
 """
 
+SCHEMA_FARMERS = """
+CREATE TABLE IF NOT EXISTS farmers (
+    id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL
+)
+"""
+
 
 @contextmanager
 def get_conn():
@@ -52,10 +60,15 @@ def init_db():
     with get_conn() as conn:
         conn.execute(SCHEMA)
         conn.execute(SCHEMA_FARMS)
+        conn.execute(SCHEMA_FARMERS)
         try:
             conn.execute("ALTER TABLE farms ADD COLUMN farm_name TEXT")
         except sqlite3.OperationalError:
             pass  # ponytail: already migrated on a prior run
+        try:
+            conn.execute("ALTER TABLE farms ADD COLUMN farmer_id TEXT REFERENCES farmers(id) ON DELETE SET NULL")
+        except sqlite3.OperationalError:
+            pass  # already migrated
 
 
 def insert_farm(farm: dict) -> dict:
@@ -175,3 +188,55 @@ def get_latest_per_plot() -> list[dict]:
             """
         )
         return [dict(r) for r in cur.fetchall()]
+
+
+def insert_farmer(farmer: dict) -> dict:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO farmers (id, name, created_at) VALUES (?, ?, ?)",
+            (farmer["id"], farmer["name"], farmer["created_at"]),
+        )
+    return get_farmer(farmer["id"])
+
+
+def get_farmer(farmer_id: str) -> dict | None:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM farmers WHERE id = ?", (farmer_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def get_farmer_by_name(name: str) -> dict | None:
+    with get_conn() as conn:
+        cur = conn.execute("SELECT * FROM farmers WHERE name = ?", (name,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def get_all_farmers() -> list[dict]:
+    with get_conn() as conn:
+        cur = conn.execute("""
+            SELECT f.*, COUNT(fm.farm_id) AS farm_count
+            FROM farmers f
+            LEFT JOIN farms fm ON fm.farmer_id = f.id
+            GROUP BY f.id
+            ORDER BY f.created_at DESC
+        """)
+        return [dict(r) for r in cur.fetchall()]
+
+
+def update_farmer(farmer_id: str, name: str) -> dict | None:
+    with get_conn() as conn:
+        conn.execute("UPDATE farmers SET name = ? WHERE id = ?", (name, farmer_id))
+    return get_farmer(farmer_id)
+
+
+def delete_farmer(farmer_id: str):
+    with get_conn() as conn:
+        conn.execute("UPDATE farms SET farmer_id = NULL WHERE farmer_id = ?", (farmer_id,))
+        conn.execute("DELETE FROM farmers WHERE id = ?", (farmer_id,))
+
+
+def assign_farm_to_farmer(farm_id: str, farmer_id: str | None):
+    with get_conn() as conn:
+        conn.execute("UPDATE farms SET farmer_id = ? WHERE farm_id = ?", (farmer_id, farm_id))
