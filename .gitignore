@@ -1,6 +1,9 @@
-frontend/config.js
+app/frontend/config.js
 model/
 readings.db
 
 __pycache__/
 *.pyc
+
+.superpowers/
+docs/superpowers/
