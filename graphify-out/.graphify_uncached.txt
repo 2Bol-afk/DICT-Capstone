@@ -1,0 +1,2 @@
+D:\dict-capstone\frontend\dashboard.html
+D:\dict-capstone\frontend\farmer.html

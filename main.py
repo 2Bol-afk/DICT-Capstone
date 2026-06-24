@@ -1,15 +1,19 @@
 import json
+import subprocess
+import time
 from datetime import datetime, timezone
 
 import joblib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import db
 from train_crop_model import FEATURES, MIN_CONFIDENCE, MODEL_PATH, PH_CROP_WHITELIST
 from sensor_sim import simulate_sensor_values
 from explain import explain_reading
+from translate import translate
 from geometry import sensor_count_for, suggest_sensor_points
 import pandas as pd
 import requests
@@ -29,12 +33,39 @@ app.add_middleware(
 model = None  # loaded once at startup
 
 
+def _ensure_ollama_running():
+    """Auto-launch the Ollama server if it isn't already running, so the offline
+    AI explain feature is self-contained instead of depending on the user
+    manually starting the Ollama app first."""
+    try:
+        requests.get("http://localhost:11434/api/tags", timeout=1)
+        return
+    except requests.RequestException:
+        pass
+    try:
+        subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    except FileNotFoundError:
+        return  # ponytail: ollama.exe not on PATH — explain endpoint will just 503
+    for _ in range(20):
+        time.sleep(0.5)
+        try:
+            requests.get("http://localhost:11434/api/tags", timeout=1)
+            return
+        except requests.RequestException:
+            continue
+
+
 @app.on_event("startup")
 def startup():
     global model, _crop_df
     db.init_db()
     model = joblib.load(MODEL_PATH)
     _crop_df = pd.read_csv(CROP_DATA_PATH)
+    _ensure_ollama_running()
 
 
 def predict_crop(N, P, K, temperature, humidity, ph, rainfall):
@@ -135,15 +166,21 @@ def simulate_reading(plot_id: str):
 
 
 @app.get("/readings/{reading_id}/explain")
-def explain(reading_id: int):
-    """Ask the local offline LLM (Ollama) to explain a specific reading's prediction."""
+def explain(reading_id: int, lang: str = "en"):
+    """Ask the local offline LLM (Ollama) to explain a specific reading's prediction,
+    then translate it offline (NLLB-200) if lang is 'fil' or 'hil'."""
     reading = db.get_reading_by_id(reading_id)
     if reading is None:
         raise HTTPException(status_code=404, detail=f"Unknown reading id: {reading_id}")
     try:
-        return {"explanation": explain_reading(reading)}
+        explanation = explain_reading(reading)
     except requests.RequestException:
         raise HTTPException(status_code=503, detail="Offline AI model (Ollama) is not reachable.")
+    try:
+        explanation = translate(explanation, lang)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
+    return {"explanation": explanation}
 
 
 @app.get("/readings")
@@ -240,6 +277,24 @@ def remove_farm(farm_id: str):
     return {"deleted": farm_id}
 
 
+@app.get("/farms/{farm_id}/predict")
+def predict_farm(farm_id: str):
+    """Average all sensors' latest readings in the farm and predict one best crop for the whole farm."""
+    if not db.get_farm(farm_id):
+        raise HTTPException(status_code=404, detail=f"Unknown farm_id: {farm_id}")
+    sensors = [s for s in db.get_latest_for_farm(farm_id) if s["soil_n"] is not None]
+    if not sensors:
+        raise HTTPException(status_code=400, detail="No sensor readings yet for this farm.")
+
+    fields = ["soil_n", "soil_p", "soil_k", "soil_ph", "air_temp_c", "humidity_pct", "rainfall_mm"]
+    avg = {f: sum(s[f] for s in sensors) / len(sensors) for f in fields}
+    prediction = predict_crop(
+        avg["soil_n"], avg["soil_p"], avg["soil_k"],
+        avg["air_temp_c"], avg["humidity_pct"], avg["soil_ph"], avg["rainfall_mm"],
+    )
+    return {"farm_id": farm_id, "sensor_count": len(sensors), "averaged_readings": avg, **prediction}
+
+
 @app.get("/farms/by-name/{farm_name}")
 def farm_by_name(farm_name: str):
     """Farmer login: look up a farm (and its sensor sub-plots) by name, no password."""
@@ -249,3 +304,7 @@ def farm_by_name(farm_name: str):
     farm["polygon"] = json.loads(farm["polygon"])
     farm["sensors"] = db.get_latest_for_farm(farm["farm_id"])
     return farm
+
+
+# ponytail: mounted last so API routes above always win over static files of the same path
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

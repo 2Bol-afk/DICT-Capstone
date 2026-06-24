@@ -69,7 +69,8 @@
     </script>
 </head>
 <body class="flex h-screen overflow-hidden">
-<aside class="fixed left-0 top-0 h-screen flex flex-col p-base space-y-2 border-r border-outline-variant bg-surface-container w-64 md:w-72 z-40">
+<div class="fixed inset-0 bg-black/40 z-30 hidden md:hidden" id="sidebarOverlay"></div>
+<aside class="fixed left-0 top-0 h-screen flex flex-col p-base space-y-2 border-r border-outline-variant bg-surface-container w-64 md:w-72 z-40 -translate-x-full md:translate-x-0 transition-transform duration-200" id="sidebar">
 <div class="px-4 py-6 mb-4">
 <div class="flex items-center gap-3">
 <div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container shadow-sm">
@@ -102,22 +103,23 @@
             </button>
 </div>
 </aside>
-<main class="flex-1 ml-64 md:ml-72 flex flex-col h-full bg-background relative">
-<header class="sticky top-0 z-30 flex justify-between items-center w-full px-container-padding py-base bg-surface border-b border-outline-variant">
-<h2 class="font-headline-sm text-headline-sm font-bold text-primary">
+<main class="flex-1 md:ml-72 flex flex-col h-full bg-background relative min-w-0">
+<header class="sticky top-0 z-20 flex justify-between items-center w-full px-container-padding py-base bg-surface border-b border-outline-variant gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<button class="md:hidden p-2 -ml-2 text-on-surface-variant hover:bg-surface-container-low rounded-full shrink-0" id="sidebarToggleBtn">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary truncate">
                     Dashboard ng Rekomendasyon sa Pananim / Crop Recommendation Dashboard
                 </h2>
-<span id="statusMsg" class="text-label-sm text-on-surface-variant"></span>
+</div>
+<span id="statusMsg" class="text-label-sm text-on-surface-variant shrink-0"></span>
 </header>
 <div class="flex-1 flex overflow-hidden">
 <section class="flex-1 h-full relative flex flex-col min-w-0">
-<button class="absolute top-6 right-6 z-20 bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full custom-shadow font-bold flex items-center gap-2 hover:shadow-md transition-all active:scale-95" id="floatingAddPlotBtn">
-<span class="material-symbols-outlined">add_location_alt</span>
-                    Magdagdag ng Bukid / Add Plot
-                </button>
 <div class="flex-1 bg-surface-dim relative overflow-hidden" id="mapCanvas">
 <div class="w-full h-full" id="map"></div>
-<div class="absolute top-6 left-6 z-20 overflow-hidden bg-white rounded-xl border border-outline-variant custom-shadow p-4 space-y-2.5 min-w-[210px]" id="mapLegend">
+<div class="absolute bottom-6 left-6 z-20 overflow-hidden bg-white rounded-xl border border-outline-variant custom-shadow p-4 space-y-2.5 min-w-[210px]" id="mapLegend">
 <p class="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant mb-1 whitespace-nowrap">Lehenda / Legend</p>
 <div id="legendFarmItems" class="hidden">
 <div class="flex items-center gap-3 text-label-sm whitespace-nowrap"><span class="w-3 h-4 shrink-0" style="background:#ea4335;clip-path:polygon(50% 100%,0 35%,0 0,100% 0,100% 35%)"></span><span>Lokasyon ng Bukid / Farm Location</span></div>
@@ -354,7 +356,7 @@
 </div>
 
 <script>
-        const API = "http://127.0.0.1:8000";
+        const API = ""; // ponytail: relative — frontend is now served by the same FastAPI process
         const PH_CENTER = { lat: 12.8797, lng: 121.7740 };
 
         let plots = [];
@@ -371,8 +373,8 @@
         let shapeFinished = false;
 
         function pinColor(plot) {
-            if (!plot.predicted_crop) return "#9ca3af";
-            return plot.confidence >= 0.6 ? "#2e7d32" : "#d97706";
+            const hasReading = plot.soil_n !== null && plot.soil_n !== undefined;
+            return hasReading ? "#2e7d32" : "#9ca3af";
         }
 
         const SENSOR_ZOOM_THRESHOLD = 14; // below this, show one pin per farm instead of every sensor
@@ -388,9 +390,8 @@
 
         function buildSensorLegend() {
             const items = [
-                ["#2e7d32", "Mataas na Kumpiyansa / High Confidence"],
-                ["#d97706", "Mababang Kumpiyansa / Low Confidence"],
-                ["#9ca3af", "Walang Katugma / No Match"],
+                ["#2e7d32", "May Reading ang Sensor / Sensor has a Reading"],
+                ["#9ca3af", "Walang Reading / No Reading Yet"],
             ];
             document.getElementById("legendSensorItems").innerHTML = items.map(([color, label]) => `
                 <div class="flex items-center gap-3 text-label-sm whitespace-nowrap">
@@ -422,10 +423,15 @@
             map = new google.maps.Map(document.getElementById("map"), {
                 center: PH_CENTER,
                 zoom: 6,
+                zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+                streetViewControl: false,
             });
             addPlotMapObj = new google.maps.Map(document.getElementById("addPlotMapDiv"), {
                 center: PH_CENTER,
                 zoom: 6,
+                zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+                mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT },
+                streetViewControl: false,
             });
 
             // ponytail: DrawingManager was removed from Maps JS (v3.65+) — place vertices by hand instead
@@ -570,7 +576,7 @@
             farmDetailModal.classList.remove("hidden");
 
             if (!farmDetailMapObj) {
-                farmDetailMapObj = new google.maps.Map(document.getElementById("farmDetailMapDiv"), { center: PH_CENTER, zoom: 6 });
+                farmDetailMapObj = new google.maps.Map(document.getElementById("farmDetailMapDiv"), { center: PH_CENTER, zoom: 6, zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM }, streetViewControl: false });
                 farmDetailMapObj.addListener("click", (e) => {
                     if (!detailEditing) return;
                     detailVertices.push({ lat: e.latLng.lat(), lng: e.latLng.lng() });
@@ -692,6 +698,7 @@
         }
         document.getElementById("settingsNav").addEventListener("click", (e) => {
             e.preventDefault();
+            setSidebarOpen(false);
             refreshSettingsUI();
             settingsModal.classList.remove("hidden");
         });
@@ -738,6 +745,7 @@
 
         document.getElementById("manageFarmersNav").addEventListener("click", async (e) => {
             e.preventDefault();
+            setSidebarOpen(false);
             await loadFarms();
             renderFarmersList();
             farmersListModal.classList.remove("hidden");
@@ -874,8 +882,15 @@
                 addPlotMapObj.setCenter(PH_CENTER);
             }, 0);
         }
-        document.getElementById("sidebarAddPlotBtn").addEventListener("click", openAddPlot);
-        document.getElementById("floatingAddPlotBtn").addEventListener("click", openAddPlot);
+        document.getElementById("sidebarAddPlotBtn").addEventListener("click", () => { setSidebarOpen(false); openAddPlot(); });
+
+        // ponytail: mobile off-canvas sidebar — desktop (md+) ignores this, sidebar stays put via CSS
+        function setSidebarOpen(open) {
+            document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+            document.getElementById("sidebarOverlay").classList.toggle("hidden", !open);
+        }
+        document.getElementById("sidebarToggleBtn").addEventListener("click", () => setSidebarOpen(true));
+        document.getElementById("sidebarOverlay").addEventListener("click", () => setSidebarOpen(false));
         document.getElementById("addPlotCloseBtn").addEventListener("click", () => addPlotModal.classList.add("hidden"));
         document.getElementById("addPlotCancelBtn").addEventListener("click", () => addPlotModal.classList.add("hidden"));
 
@@ -942,7 +957,7 @@
             e.target.textContent = "Thinking... (this can take a while on CPU)";
             e.target.disabled = true;
             try {
-                const res = await fetch(`${API}/readings/${latestReadingId}/explain`);
+                const res = await fetch(`${API}/readings/${latestReadingId}/explain?lang=${localStorage.getItem("lang") === "both" ? "en" : (localStorage.getItem("lang") || "en")}`);
                 const data = await res.json();
                 document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
             } catch {

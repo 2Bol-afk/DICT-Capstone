@@ -1,0 +1,889 @@
+{
+  "nodes": [
+    {
+      "id": "main",
+      "label": "main.py",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_ensure_ollama_running",
+      "label": "_ensure_ollama_running()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L36",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_startup",
+      "label": "startup()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L63",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_predict_crop",
+      "label": "predict_crop()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L71",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_readingin",
+      "label": "ReadingIn",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L89",
+      "_origin": "ast"
+    },
+    {
+      "id": "basemodel",
+      "label": "BaseModel",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_create_reading",
+      "label": "create_reading()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L105",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_plotin",
+      "label": "PlotIn",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L118",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_create_plot",
+      "label": "create_plot()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L126",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_simulate_reading",
+      "label": "simulate_reading()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L140",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_explain",
+      "label": "explain()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L169",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_list_readings",
+      "label": "list_readings()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L187",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_list_readings_for_plot",
+      "label": "list_readings_for_plot()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L192",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_list_plots",
+      "label": "list_plots()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L197",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_farmin",
+      "label": "FarmIn",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L201",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_farmupdate",
+      "label": "FarmUpdate",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L208",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_create_farm",
+      "label": "create_farm()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L216",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_list_farms",
+      "label": "list_farms()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L252",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_edit_farm",
+      "label": "edit_farm()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L260",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_remove_farm",
+      "label": "remove_farm()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L273",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_predict_farm",
+      "label": "predict_farm()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L281",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_farm_by_name",
+      "label": "farm_by_name()",
+      "file_type": "code",
+      "source_file": "main.py",
+      "source_location": "L299",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_37",
+      "label": "Auto-launch the Ollama server if it isn't already running, so the offline     AI",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L37",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_127",
+      "label": "Register a plot with no sensor reading yet.",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L127",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_141",
+      "label": "Generate one realistic reading for an existing plot and predict on it.",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L141",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_170",
+      "label": "Ask the local offline LLM (Ollama) to explain a specific reading's prediction,",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L170",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_217",
+      "label": "Register a farm boundary and auto-place sensor sub-plots inside it     (5 sensor",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L217",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_282",
+      "label": "Average all sensors' latest readings in the farm and predict one best crop for t",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L282",
+      "_origin": "ast"
+    },
+    {
+      "id": "main_rationale_300",
+      "label": "Farmer login: look up a farm (and its sensor sub-plots) by name, no password.",
+      "file_type": "rationale",
+      "source_file": "main.py",
+      "source_location": "L300",
+      "_origin": "ast"
+    },
+    {
+      "id": "translate",
+      "label": "translate.py",
+      "file_type": "code",
+      "source_file": "translate.py",
+      "source_location": "L1",
+      "_origin": "ast"
+    },
+    {
+      "id": "translate_load",
+      "label": "_load()",
+      "file_type": "code",
+      "source_file": "translate.py",
+      "source_location": "L16",
+      "_origin": "ast"
+    },
+    {
+      "id": "translate_translate",
+      "label": "translate()",
+      "file_type": "code",
+      "source_file": "translate.py",
+      "source_location": "L23",
+      "_origin": "ast"
+    },
+    {
+      "id": "translate_rationale_24",
+      "label": "Translate English text to Tagalog ('fil'). Returns text unchanged for 'en'.",
+      "file_type": "rationale",
+      "source_file": "translate.py",
+      "source_location": "L24",
+      "_origin": "ast"
+    }
+  ],
+  "edges": [
+    {
+      "source": "main",
+      "target": "json",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "subprocess",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "time",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "datetime",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "joblib",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "fastapi",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "fastapi_middleware_cors",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "fastapi_staticfiles",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "pydantic",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "db",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "train_crop_model",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "sensor_sim",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "explain",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "translate",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "geometry",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "pandas",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "requests",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "fastapi",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_ensure_ollama_running",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L36",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_startup",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L63",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_predict_crop",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L71",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_readingin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "main_readingin",
+      "target": "basemodel",
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_create_reading",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "main_create_reading",
+      "target": "main_readingin",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_plotin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "main_plotin",
+      "target": "basemodel",
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_create_plot",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L126",
+      "weight": 1.0
+    },
+    {
+      "source": "main_create_plot",
+      "target": "main_plotin",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L126",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_simulate_reading",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L140",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_explain",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L169",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_list_readings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L187",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_list_readings_for_plot",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_list_plots",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L197",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_farmin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L201",
+      "weight": 1.0
+    },
+    {
+      "source": "main_farmin",
+      "target": "basemodel",
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L201",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_farmupdate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L208",
+      "weight": 1.0
+    },
+    {
+      "source": "main_farmupdate",
+      "target": "basemodel",
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L208",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_create_farm",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L216",
+      "weight": 1.0
+    },
+    {
+      "source": "main_create_farm",
+      "target": "main_farmin",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L216",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_list_farms",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L252",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_edit_farm",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L260",
+      "weight": 1.0
+    },
+    {
+      "source": "main_edit_farm",
+      "target": "main_farmupdate",
+      "relation": "references",
+      "context": "parameter_type",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L260",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_remove_farm",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L273",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_predict_farm",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L281",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "main_farm_by_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L299",
+      "weight": 1.0
+    },
+    {
+      "source": "main_startup",
+      "target": "main_ensure_ollama_running",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L68",
+      "weight": 1.0
+    },
+    {
+      "source": "main_create_reading",
+      "target": "main_predict_crop",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L106",
+      "weight": 1.0
+    },
+    {
+      "source": "main_simulate_reading",
+      "target": "main_predict_crop",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L149",
+      "weight": 1.0
+    },
+    {
+      "source": "main_predict_farm",
+      "target": "main_predict_crop",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L291",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_37",
+      "target": "main_ensure_ollama_running",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_127",
+      "target": "main_create_plot",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L127",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_141",
+      "target": "main_simulate_reading",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_170",
+      "target": "main_explain",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L170",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_217",
+      "target": "main_create_farm",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L217",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_282",
+      "target": "main_predict_farm",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L282",
+      "weight": 1.0
+    },
+    {
+      "source": "main_rationale_300",
+      "target": "main_farm_by_name",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L300",
+      "weight": 1.0
+    },
+    {
+      "source": "translate",
+      "target": "os",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "translate.py",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "translate",
+      "target": "functools",
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "translate.py",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "translate",
+      "target": "translate_load",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "translate.py",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "translate",
+      "target": "translate_translate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "translate.py",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "translate_translate",
+      "target": "translate_load",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "translate.py",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "translate_rationale_24",
+      "target": "translate_translate",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "translate.py",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "main",
+      "target": "translate_translate",
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "main.py",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "main_explain",
+      "target": "translate_translate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "main.py",
+      "source_location": "L180",
+      "weight": 1.0
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

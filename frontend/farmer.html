@@ -10,16 +10,31 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background:#f7fbf0; color:#181d17; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
         .hidden { display: none !important; }
+        html.dark body { background-color: #101410; color: #e5e9e2; }
+        html.dark .bg-white, html.dark .bg-gray-50 { background-color: #1b211c !important; }
+        html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
+        html.dark .border, html.dark .border-t, html.dark .border-b { border-color: #3a423a !important; }
+        .theme-option.active, .lang-option.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
+        .nav-btn.active { color: #0d631b; }
+        .nav-btn { color: #9ca3af; }
+        html.dark .nav-btn { color: #6b7280; }
+        html.dark .nav-btn.active { color: #4ade80; }
     </style>
+<script>
+        if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+    </script>
 </head>
-<body class="min-h-screen pb-10">
-<header class="sticky top-0 bg-white border-b px-4 py-4 flex items-center gap-2 shadow-sm">
+<body class="min-h-screen pb-20">
+<header class="sticky top-0 bg-white border-b px-4 py-4 flex items-center gap-2 shadow-sm z-10">
 <span class="material-symbols-outlined text-[#0d631b]" style="font-variation-settings:'FILL' 1;">potted_plant</span>
 <h1 class="font-bold text-lg text-[#0d631b]">Aking Bukid / My Farm</h1>
 </header>
 
 <div class="p-4 max-w-md mx-auto space-y-4">
-<div class="bg-white rounded-xl p-4 shadow-sm border" id="searchCard">
+
+<!-- Dashboard tab -->
+<div id="tabDashboard">
+<div class="bg-white rounded-xl p-4 shadow-sm border mb-4" id="searchCard">
 <label class="block text-sm font-medium text-gray-600 mb-2">Pangalan ng Bukid / Your Farm Name</label>
 <div class="flex gap-2">
 <input class="flex-1 border rounded-lg px-3 py-2" id="farmNameInput" placeholder="e.g. dela-cruz-farm" type="text">
@@ -28,9 +43,33 @@
 <p class="text-xs text-red-600 mt-2 hidden" id="farmSearchError">Farm not found.</p>
 </div>
 
-<div class="hidden bg-white rounded-xl p-4 shadow-sm border" id="sensorListCard">
+<div class="hidden bg-white rounded-xl p-5 shadow-sm border-l-4 border-blue-600 mb-4" id="farmPredictCard">
+<p class="text-xs uppercase font-bold text-blue-700 mb-2">Rekomendasyon para sa Buong Bukid / Whole-Farm Recommendation</p>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-4xl text-blue-700" style="font-variation-settings:'FILL' 1;">grass</span>
+<div>
+<p class="text-2xl font-bold" id="farmPredictCrop">-</p>
+<p class="text-sm text-gray-500" id="farmPredictConfidence">-</p>
+</div>
+</div>
+<p class="text-xs text-gray-400 mt-2" id="farmPredictSensorCount"></p>
+</div>
+
+<div class="hidden bg-white rounded-xl p-4 shadow-sm border" id="dashSummaryCard">
+<p class="text-xs uppercase font-bold text-gray-500 mb-3">Buod ng Bukid / Farm Summary</p>
+<div class="grid grid-cols-2 gap-3 text-sm">
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">May Reading / With Reading</p><p class="text-lg font-bold text-[#0d631b]" id="dashWithReading">-</p></div>
+<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Walang Reading / No Reading</p><p class="text-lg font-bold text-gray-400" id="dashNoReading">-</p></div>
+</div>
+</div>
+</div>
+
+<!-- Sensors tab -->
+<div class="hidden" id="tabSensors">
+<div class="bg-white rounded-xl p-4 shadow-sm border mb-4" id="sensorListCard">
 <p class="text-xs uppercase font-bold text-gray-500 mb-3">Mga Sensor / Sensors</p>
 <div class="flex flex-wrap gap-2" id="sensorList"></div>
+<p class="text-xs text-gray-400 mt-3 hidden" id="noSensorListMsg">Maghanap muna ng bukid sa Dashboard / Search a farm in Dashboard first.</p>
 </div>
 
 <div class="hidden space-y-4" id="result">
@@ -77,11 +116,55 @@
 </div>
 </div>
 
+<!-- Settings tab -->
+<div class="hidden" id="tabSettings">
+<div class="bg-white rounded-xl p-4 shadow-sm border mb-4">
+<p class="text-xs uppercase font-bold text-gray-500 mb-3">Tema / Theme</p>
+<div class="flex gap-2">
+<button class="theme-option flex-1 py-2.5 rounded-lg border font-semibold" data-theme="light" type="button">Light</button>
+<button class="theme-option flex-1 py-2.5 rounded-lg border font-semibold" data-theme="dark" type="button">Dark</button>
+</div>
+</div>
+<div class="bg-white rounded-xl p-4 shadow-sm border">
+<p class="text-xs uppercase font-bold text-gray-500 mb-3">Wika / Language</p>
+<div class="flex gap-2">
+<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="both" type="button">Both</button>
+<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="fil" type="button">Tagalog</button>
+<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="en" type="button">English</button>
+</div>
+</div>
+</div>
+
+</div>
+
+<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-2 z-10">
+<button class="nav-btn active flex flex-col items-center gap-1 px-4 py-1" data-tab="tabDashboard" type="button">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[11px] font-semibold">Dashboard</span>
+</button>
+<button class="nav-btn flex flex-col items-center gap-1 px-4 py-1" data-tab="tabSensors" type="button">
+<span class="material-symbols-outlined">sensors</span>
+<span class="text-[11px] font-semibold">Sensors</span>
+</button>
+<button class="nav-btn flex flex-col items-center gap-1 px-4 py-1" data-tab="tabSettings" type="button">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[11px] font-semibold">Settings</span>
+</button>
+</nav>
+
 <script>
-        const API = "http://127.0.0.1:8000";
+        const API = ""; // ponytail: relative — frontend is now served by the same FastAPI process
         // ponytail: read-only farmer view, no password — typing your farm name or plot ID is the "login".
         // Fine for a single-cooperative demo; add real per-farmer auth if this goes multi-tenant.
         let currentReadingId = null;
+        let currentFarm = null;
+
+        // --- Tab navigation ---
+        function setTab(tabId) {
+            document.querySelectorAll("[id^='tab']").forEach(el => el.classList.toggle("hidden", el.id !== tabId));
+            document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+        }
+        document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
 
         async function lookup(plotId) {
             document.getElementById("farmSearchError").classList.add("hidden");
@@ -99,6 +182,8 @@
             document.getElementById("farmSearchError").classList.add("hidden");
             document.getElementById("result").classList.add("hidden");
             document.getElementById("sensorListCard").classList.add("hidden");
+            document.getElementById("farmPredictCard").classList.add("hidden");
+            document.getElementById("dashSummaryCard").classList.add("hidden");
             const res = await fetch(`${API}/farms/by-name/${encodeURIComponent(farmName)}`);
             if (!res.ok) {
                 document.getElementById("farmSearchError").classList.remove("hidden");
@@ -110,17 +195,44 @@
                 document.getElementById("farmSearchError").classList.remove("hidden");
                 return;
             }
+            currentFarm = farm;
+            document.getElementById("noSensorListMsg").classList.add("hidden");
+
+            const withReading = farm.sensors.filter(s => s.soil_n !== null && s.soil_n !== undefined);
+            const noReading = farm.sensors.length - withReading.length;
+            document.getElementById("dashWithReading").textContent = withReading.length;
+            document.getElementById("dashNoReading").textContent = noReading;
+            document.getElementById("dashSummaryCard").classList.remove("hidden");
+
             const list = document.getElementById("sensorList");
             list.innerHTML = "";
             farm.sensors.forEach((s, i) => {
+                const hasReading = s.soil_n !== null && s.soil_n !== undefined;
                 const btn = document.createElement("button");
-                btn.className = "border rounded-lg px-3 py-2 text-sm font-bold text-[#0d631b] border-[#0d631b] hover:bg-[#0d631b] hover:text-white transition-colors";
-                btn.textContent = `Sensor ${i + 1}`;
-                btn.addEventListener("click", () => lookup(s.plot_id));
+                btn.className = "border rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2 transition-colors " +
+                    (hasReading ? "text-[#0d631b] border-[#0d631b] hover:bg-[#0d631b] hover:text-white" : "text-gray-400 border-gray-300 hover:bg-gray-100");
+                btn.innerHTML = `<span class="inline-block w-2 h-2 rounded-full" style="background:${hasReading ? "#2e7d32" : "#9ca3af"}"></span>Sensor ${i + 1}`;
+                btn.addEventListener("click", () => { lookup(s.plot_id); setTab("tabSensors"); });
                 list.appendChild(btn);
             });
             document.getElementById("sensorListCard").classList.remove("hidden");
             lookup(farm.sensors[0].plot_id);
+            predictFarm(farm.farm_id);
+        }
+
+        async function predictFarm(farmId) {
+            const card = document.getElementById("farmPredictCard");
+            try {
+                const res = await fetch(`${API}/farms/${farmId}/predict`);
+                if (!res.ok) { card.classList.add("hidden"); return; }
+                const data = await res.json();
+                document.getElementById("farmPredictCrop").textContent = data.crop || "Walang katugma";
+                document.getElementById("farmPredictConfidence").textContent = data.crop ? `${Math.round(data.confidence * 100)}% confidence` : (data.message || "-");
+                document.getElementById("farmPredictSensorCount").textContent = `Based on ${data.sensor_count} sensor(s) with readings`;
+                card.classList.remove("hidden");
+            } catch {
+                card.classList.add("hidden");
+            }
         }
 
         function render(readings) {
@@ -178,7 +290,8 @@
             e.target.textContent = "Sandali lang...";
             e.target.disabled = true;
             try {
-                const res = await fetch(`${API}/readings/${currentReadingId}/explain`);
+                const lang = localStorage.getItem("lang") === "both" ? "en" : (localStorage.getItem("lang") || "en");
+                const res = await fetch(`${API}/readings/${currentReadingId}/explain?lang=${lang}`);
                 const data = await res.json();
                 document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
             } catch {
@@ -196,6 +309,30 @@
             if (e.key === "Enter") document.getElementById("farmSearchBtn").click();
         });
 
+        // --- Settings: theme + language ---
+        function applyLanguage(pref) {
+            // ponytail: bilingual labels in this file are plain "Tagalog / English" text,
+            // not separated spans like dashboard.html — so language pref only affects future additions.
+            localStorage.setItem("lang", pref);
+        }
+        function applyTheme(theme) {
+            document.documentElement.classList.toggle("dark", theme === "dark");
+        }
+        const savedTheme = localStorage.getItem("theme") || "light";
+        const savedLang = localStorage.getItem("lang") || "both";
+        applyTheme(savedTheme);
+        document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === savedTheme));
+        document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === savedLang));
+        document.querySelectorAll(".theme-option").forEach(btn => btn.addEventListener("click", () => {
+            localStorage.setItem("theme", btn.dataset.theme);
+            applyTheme(btn.dataset.theme);
+            document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b === btn));
+        }));
+        document.querySelectorAll(".lang-option").forEach(btn => btn.addEventListener("click", () => {
+            applyLanguage(btn.dataset.lang);
+            document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b === btn));
+        }));
+
         const params = new URLSearchParams(location.search);
         const urlFarm = params.get("farm");
         const urlPlot = params.get("plot");
@@ -204,6 +341,9 @@
             lookupFarm(urlFarm);
         } else if (urlPlot) {
             lookup(urlPlot);
+            setTab("tabSensors");
+        } else {
+            document.getElementById("noSensorListMsg").classList.remove("hidden");
         }
     </script>
 </body></html>

@@ -1,0 +1,67 @@
+{
+  "D:\\dict-capstone\\db.py": {
+    "mtime": 1782234145.786987,
+    "ast_hash": "863beee78c9f58cdf6d75d28ccfc8e49",
+    "semantic_hash": "863beee78c9f58cdf6d75d28ccfc8e49"
+  },
+  "D:\\dict-capstone\\explain.py": {
+    "mtime": 1782215555.74553,
+    "ast_hash": "af842a3daf7c7308acc25ee120f6ac4e",
+    "semantic_hash": "af842a3daf7c7308acc25ee120f6ac4e"
+  },
+  "D:\\dict-capstone\\frontend\\config.example.js": {
+    "mtime": 1782218336.9304962,
+    "ast_hash": "0fd0a72a942eab53c60ce66096283392",
+    "semantic_hash": "0fd0a72a942eab53c60ce66096283392"
+  },
+  "D:\\dict-capstone\\geometry.py": {
+    "mtime": 1782219326.187209,
+    "ast_hash": "98509acb0b4667abd82114e9c0f405bc",
+    "semantic_hash": "98509acb0b4667abd82114e9c0f405bc"
+  },
+  "D:\\dict-capstone\\main.py": {
+    "mtime": 1782234135.2766147,
+    "ast_hash": "21130a722a93cea8a56858d53d5a8465",
+    "semantic_hash": "21130a722a93cea8a56858d53d5a8465"
+  },
+  "D:\\dict-capstone\\seed_demo.py": {
+    "mtime": 1782215810.4521978,
+    "ast_hash": "83b13fc51c0f270701805d982011cc88",
+    "semantic_hash": "83b13fc51c0f270701805d982011cc88"
+  },
+  "D:\\dict-capstone\\sensor_sim.py": {
+    "mtime": 1782214729.6805022,
+    "ast_hash": "5aeaafcd62a83debd5852acee6bb3a9f",
+    "semantic_hash": "5aeaafcd62a83debd5852acee6bb3a9f"
+  },
+  "D:\\dict-capstone\\simulate_data.py": {
+    "mtime": 1782214739.265844,
+    "ast_hash": "d2108c372df63e1548473f0cfebfe22c",
+    "semantic_hash": "d2108c372df63e1548473f0cfebfe22c"
+  },
+  "D:\\dict-capstone\\train_crop_model.py": {
+    "mtime": 1782213139.2273118,
+    "ast_hash": "9fa08ae22b7d600d211b06d7d922646b",
+    "semantic_hash": "9fa08ae22b7d600d211b06d7d922646b"
+  },
+  "D:\\dict-capstone\\frontend\\add_plot.html": {
+    "mtime": 1782214937.0605545,
+    "ast_hash": "ed5db71d4e65545d62f844f2a68f5211",
+    "semantic_hash": "ed5db71d4e65545d62f844f2a68f5211"
+  },
+  "D:\\dict-capstone\\frontend\\add_reading.html": {
+    "mtime": 1782214938.343428,
+    "ast_hash": "33ed72e1fbbb558285ed9d13cc6476bb",
+    "semantic_hash": "33ed72e1fbbb558285ed9d13cc6476bb"
+  },
+  "D:\\dict-capstone\\frontend\\dashboard.html": {
+    "mtime": 1782254521.5433567,
+    "ast_hash": "403e770238fd61c6221bca02caf09b42",
+    "semantic_hash": "403e770238fd61c6221bca02caf09b42"
+  },
+  "D:\\dict-capstone\\frontend\\farmer.html": {
+    "mtime": 1782232195.3450513,
+    "ast_hash": "2601b0e468e83285c9fe00ae58fe12c6",
+    "semantic_hash": "2601b0e468e83285c9fe00ae58fe12c6"
+  }
+}

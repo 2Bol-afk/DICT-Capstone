@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {"id": "frontend_farmer_settab", "label": "setTab", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_lookup", "label": "lookup", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_lookupfarm", "label": "lookupFarm", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_predictfarm", "label": "predictFarm", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_render", "label": "render", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_applylanguage", "label": "applyLanguage", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_applytheme", "label": "applyTheme", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_explainbtn_handler", "label": "explainBtn click handler", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_farmsearchbtn_handler", "label": "farmSearchBtn click handler", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_url_param_init", "label": "URL param init logic (farm/plot query string)", "file_type": "code", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_readings_endpoint", "label": "GET /readings/{plot_id} API endpoint", "file_type": "concept", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_farms_by_name_endpoint", "label": "GET /farms/by-name/{farmName} API endpoint", "file_type": "concept", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_farms_predict_endpoint", "label": "GET /farms/{farmId}/predict API endpoint", "file_type": "concept", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_readings_explain_endpoint", "label": "GET /readings/{id}/explain API endpoint", "file_type": "concept", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_readonly_auth_pattern", "label": "Read-only farm-name-as-login auth pattern", "file_type": "rationale", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_relative_api_pattern", "label": "Relative API base path (same FastAPI process serves frontend)", "file_type": "rationale", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "frontend_farmer_bilingual_label_limitation", "label": "Bilingual label limitation (plain text, not span-separated)", "file_type": "rationale", "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}
+  ],
+  "edges": [
+    {"source": "frontend_farmer_lookupfarm", "target": "frontend_farmer_farms_by_name_endpoint", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_lookup", "target": "frontend_farmer_readings_endpoint", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_predictfarm", "target": "frontend_farmer_farms_predict_endpoint", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_explainbtn_handler", "target": "frontend_farmer_readings_explain_endpoint", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_lookupfarm", "target": "frontend_farmer_lookup", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_lookupfarm", "target": "frontend_farmer_predictfarm", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_lookup", "target": "frontend_farmer_render", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_lookupfarm", "target": "frontend_farmer_settab", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_url_param_init", "target": "frontend_farmer_lookupfarm", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_url_param_init", "target": "frontend_farmer_lookup", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_url_param_init", "target": "frontend_farmer_settab", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_farmsearchbtn_handler", "target": "frontend_farmer_lookupfarm", "relation": "calls", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_relative_api_pattern", "target": "frontend_farmer_lookup", "relation": "rationale_for", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_relative_api_pattern", "target": "frontend_farmer_lookupfarm", "relation": "rationale_for", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_readonly_auth_pattern", "target": "frontend_farmer_lookupfarm", "relation": "rationale_for", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_bilingual_label_limitation", "target": "frontend_farmer_applylanguage", "relation": "rationale_for", "confidence": "EXTRACTED", "confidence_score": 1.0, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_lookupfarm", "target": "frontend_farmer_farms_by_name_endpoint", "relation": "shares_data_with", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0},
+    {"source": "frontend_farmer_render", "target": "frontend_farmer_readings_endpoint", "relation": "shares_data_with", "confidence": "INFERRED", "confidence_score": 0.95, "source_file": "D:\\dict-capstone\\frontend\\farmer.html", "source_location": null, "weight": 1.0}
+  ],
+  "hyperedges": [
+    {
+      "id": "frontend_farmer_dashboard_flow",
+      "label": "Farm lookup-to-recommendation flow (farmer.html)",
+      "nodes": ["frontend_farmer_lookupfarm", "frontend_farmer_lookup", "frontend_farmer_predictfarm", "frontend_farmer_render"],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\dict-capstone\\frontend\\farmer.html"
+    },
+    {
+      "id": "frontend_farmer_settings_flow",
+      "label": "Theme and language preference settings flow",
+      "nodes": ["frontend_farmer_applytheme", "frontend_farmer_applylanguage", "frontend_farmer_bilingual_label_limitation"],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\dict-capstone\\frontend\\farmer.html"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}
