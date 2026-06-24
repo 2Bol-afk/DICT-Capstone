@@ -1,0 +1,956 @@
+2bb0da7 feat: build farmer SPA with My Farms, Sensors, History, Settings tabs
+ frontend/farmer.html | 938 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 599 insertions(+), 339 deletions(-)
+diff --git a/frontend/farmer.html b/frontend/farmer.html
+index c390722..f71589d 100644
+--- a/frontend/farmer.html
++++ b/frontend/farmer.html
+@@ -1,349 +1,609 @@
+ <!DOCTYPE html>
+-<html lang="en"><head>
++<html lang="fil">
++<head>
+ <meta charset="utf-8"/>
+-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+-<title>Agri-Admin | Aking Bukid</title>
++<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
++<title>Aking Bukid</title>
++<script>
++  const farmerAuth = JSON.parse(sessionStorage.getItem("farmerAuth") || "null");
++  if (!farmerAuth) window.location.replace("/");
++</script>
++<script>
++  if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
++</script>
+ <script src="https://cdn.tailwindcss.com"></script>
+-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
++<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
++<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+ <style>
+-        body { font-family: 'Plus Jakarta Sans', sans-serif; background:#f7fbf0; color:#181d17; }
+-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+-        .hidden { display: none !important; }
+-        html.dark body { background-color: #101410; color: #e5e9e2; }
+-        html.dark .bg-white, html.dark .bg-gray-50 { background-color: #1b211c !important; }
+-        html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
+-        html.dark .border, html.dark .border-t, html.dark .border-b { border-color: #3a423a !important; }
+-        .theme-option.active, .lang-option.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
+-        .nav-btn.active { color: #0d631b; }
+-        .nav-btn { color: #9ca3af; }
+-        html.dark .nav-btn { color: #6b7280; }
+-        html.dark .nav-btn.active { color: #4ade80; }
+-    </style>
+-<script>
+-        if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+-    </script>
++  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f7fbf0; color: #181d17; }
++  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
++  .hidden { display: none !important; }
++
++  /* Dark mode */
++  html.dark body { background: #101410; color: #e5e9e2; }
++  html.dark .bg-white { background-color: #1b211c !important; }
++  html.dark .bg-gray-50 { background-color: #222922 !important; }
++  html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
++  html.dark .border-gray-100 { border-color: #2e382e !important; }
++  html.dark .border, html.dark .border-t, html.dark .border-b { border-color: #3a423a !important; }
++  html.dark table tbody tr { border-color: #3a423a !important; }
++
++  /* Nav */
++  .nav-btn { color: #9ca3af; transition: color 0.15s; }
++  .nav-btn.active { color: #0d631b; }
++  html.dark .nav-btn { color: #6b7280; }
++  html.dark .nav-btn.active { color: #4ade80; }
++
++  /* Settings toggles */
++  .theme-option.active, .lang-option.active {
++    background-color: #0d631b;
++    color: #fff;
++    border-color: #0d631b;
++  }
++
++  /* Sensor buttons */
++  .sensor-btn { transition: background-color 0.15s, color 0.15s; }
++  .sensor-btn.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
++</style>
+ </head>
+-<body class="min-h-screen pb-20">
+-<header class="sticky top-0 bg-white border-b px-4 py-4 flex items-center gap-2 shadow-sm z-10">
+-<span class="material-symbols-outlined text-[#0d631b]" style="font-variation-settings:'FILL' 1;">potted_plant</span>
+-<h1 class="font-bold text-lg text-[#0d631b]">Aking Bukid / My Farm</h1>
++<body class="min-h-screen" style="padding-bottom:72px">
++
++<!-- ===== TOP HEADER ===== -->
++<header class="sticky top-0 bg-white border-b border-gray-100 shadow-sm z-10 px-4 py-3 flex items-center gap-3">
++  <div class="w-9 h-9 rounded-xl bg-[#0d631b] flex items-center justify-center flex-shrink-0">
++    <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;">eco</span>
++  </div>
++  <div class="flex-1 min-w-0">
++    <p class="font-bold text-[#0d631b] text-sm leading-tight">Aking Bukid</p>
++    <p class="text-xs text-gray-500 truncate" id="headerFarmerName">—</p>
++  </div>
++  <button id="langToggle" type="button" class="text-xs font-bold border border-gray-300 rounded-lg px-3 py-1.5 text-gray-600 hover:border-[#0d631b] hover:text-[#0d631b] transition-colors">
++    EN
++  </button>
+ </header>
+ 
+-<div class="p-4 max-w-md mx-auto space-y-4">
+-
+-<!-- Dashboard tab -->
+-<div id="tabDashboard">
+-<div class="bg-white rounded-xl p-4 shadow-sm border mb-4" id="searchCard">
+-<label class="block text-sm font-medium text-gray-600 mb-2">Pangalan ng Bukid / Your Farm Name</label>
+-<div class="flex gap-2">
+-<input class="flex-1 border rounded-lg px-3 py-2" id="farmNameInput" placeholder="e.g. dela-cruz-farm" type="text">
+-<button class="bg-[#0d631b] text-white px-4 py-2 rounded-lg font-bold" id="farmSearchBtn">Hanapin</button>
+-</div>
+-<p class="text-xs text-red-600 mt-2 hidden" id="farmSearchError">Farm not found.</p>
+-</div>
+-
+-<div class="hidden bg-white rounded-xl p-5 shadow-sm border-l-4 border-blue-600 mb-4" id="farmPredictCard">
+-<p class="text-xs uppercase font-bold text-blue-700 mb-2">Rekomendasyon para sa Buong Bukid / Whole-Farm Recommendation</p>
+-<div class="flex items-center gap-3">
+-<span class="material-symbols-outlined text-4xl text-blue-700" style="font-variation-settings:'FILL' 1;">grass</span>
+-<div>
+-<p class="text-2xl font-bold" id="farmPredictCrop">-</p>
+-<p class="text-sm text-gray-500" id="farmPredictConfidence">-</p>
+-</div>
+-</div>
+-<p class="text-xs text-gray-400 mt-2" id="farmPredictSensorCount"></p>
+-</div>
+-
+-<div class="hidden bg-white rounded-xl p-4 shadow-sm border" id="dashSummaryCard">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Buod ng Bukid / Farm Summary</p>
+-<div class="grid grid-cols-2 gap-3 text-sm">
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">May Reading / With Reading</p><p class="text-lg font-bold text-[#0d631b]" id="dashWithReading">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Walang Reading / No Reading</p><p class="text-lg font-bold text-gray-400" id="dashNoReading">-</p></div>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Sensors tab -->
+-<div class="hidden" id="tabSensors">
+-<div class="bg-white rounded-xl p-4 shadow-sm border mb-4" id="sensorListCard">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Mga Sensor / Sensors</p>
+-<div class="flex flex-wrap gap-2" id="sensorList"></div>
+-<p class="text-xs text-gray-400 mt-3 hidden" id="noSensorListMsg">Maghanap muna ng bukid sa Dashboard / Search a farm in Dashboard first.</p>
+-</div>
+-
+-<div class="hidden space-y-4" id="result">
+-<div class="bg-white rounded-xl p-4 shadow-sm border">
+-<p class="text-sm text-gray-500" id="resOwner">-</p>
+-<p class="text-lg font-bold" id="resPlotId">-</p>
+-<p class="text-xs text-gray-500 mt-1" id="resCoords">-</p>
+-</div>
+-
+-<div class="bg-white rounded-xl p-5 shadow-sm border-l-4 border-[#0d631b]">
+-<p class="text-xs uppercase font-bold text-[#0d631b] mb-2">Rekomendasyon / Recommendation</p>
+-<div class="flex items-center gap-3">
+-<span class="material-symbols-outlined text-4xl text-[#0d631b]" style="font-variation-settings:'FILL' 1;">agriculture</span>
+-<div>
+-<p class="text-2xl font-bold" id="resCrop">-</p>
+-<p class="text-sm text-gray-500" id="resConfidence">-</p>
+-</div>
+-</div>
+-<p class="text-sm text-gray-500 mt-3" id="resMessage"></p>
+-<button class="mt-3 text-sm font-bold text-[#0d631b] underline hidden" id="explainBtn">Bakit? / Why?</button>
+-<p class="text-sm text-gray-500 mt-2 italic" id="explainText"></p>
+-</div>
+-
+-<div class="bg-white rounded-xl p-5 shadow-sm border">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Pagbasa ng Sensor / Sensor Readings</p>
+-<div class="grid grid-cols-2 gap-3 text-sm" id="readingsGrid">
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">N</p><p class="text-lg font-bold text-[#0d631b]" id="rN">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">P</p><p class="text-lg font-bold text-[#0d631b]" id="rP">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">K</p><p class="text-lg font-bold text-[#0d631b]" id="rK">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">pH</p><p class="text-lg font-bold text-[#0d631b]" id="rPh">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Temp</p><p class="text-lg font-bold" id="rTemp">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Moisture</p><p class="text-lg font-bold" id="rMoisture">-</p></div>
+-</div>
+-<p class="text-xs text-gray-400 mt-3" id="resTimestamp"></p>
+-</div>
+-
+-<div class="bg-white rounded-xl p-5 shadow-sm border">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Kasaysayan / History</p>
+-<table class="w-full text-left text-sm">
+-<thead class="text-gray-400 text-xs"><tr><th class="py-1">Petsa</th><th class="py-1">pH</th><th class="py-1">Temp</th><th class="py-1">Pananim</th></tr></thead>
+-<tbody id="historyBody"></tbody>
+-</table>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Settings tab -->
+-<div class="hidden" id="tabSettings">
+-<div class="bg-white rounded-xl p-4 shadow-sm border mb-4">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Tema / Theme</p>
+-<div class="flex gap-2">
+-<button class="theme-option flex-1 py-2.5 rounded-lg border font-semibold" data-theme="light" type="button">Light</button>
+-<button class="theme-option flex-1 py-2.5 rounded-lg border font-semibold" data-theme="dark" type="button">Dark</button>
+-</div>
+-</div>
+-<div class="bg-white rounded-xl p-4 shadow-sm border">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Wika / Language</p>
+-<div class="flex gap-2">
+-<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="both" type="button">Both</button>
+-<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="fil" type="button">Tagalog</button>
+-<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="en" type="button">English</button>
+-</div>
+-</div>
+-</div>
+-
+-</div>
+-
+-<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-2 z-10">
+-<button class="nav-btn active flex flex-col items-center gap-1 px-4 py-1" data-tab="tabDashboard" type="button">
+-<span class="material-symbols-outlined">dashboard</span>
+-<span class="text-[11px] font-semibold">Dashboard</span>
+-</button>
+-<button class="nav-btn flex flex-col items-center gap-1 px-4 py-1" data-tab="tabSensors" type="button">
+-<span class="material-symbols-outlined">sensors</span>
+-<span class="text-[11px] font-semibold">Sensors</span>
+-</button>
+-<button class="nav-btn flex flex-col items-center gap-1 px-4 py-1" data-tab="tabSettings" type="button">
+-<span class="material-symbols-outlined">settings</span>
+-<span class="text-[11px] font-semibold">Settings</span>
+-</button>
++<!-- ===== CONTENT AREA ===== -->
++<div class="max-w-md mx-auto px-4 pt-4 space-y-0">
++
++  <!-- ─── Tab 1: My Farms ─── -->
++  <div id="tabMyFarms">
++    <h2 class="text-base font-bold mb-3" data-fil="Aking mga Bukid" data-en="My Farms">Aking mga Bukid</h2>
++    <div id="farmCardList" class="space-y-3">
++      <!-- farm cards injected here -->
++    </div>
++  </div>
++
++  <!-- ─── Tab 2: Sensors ─── -->
++  <div id="tabSensors" class="hidden">
++    <!-- Farm selector -->
++    <div class="mb-4">
++      <label class="text-xs font-bold text-gray-500 uppercase mb-1 block" data-fil="Piliin ang Bukid" data-en="Select Farm">Piliin ang Bukid</label>
++      <select id="sensorFarmSelect" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#0d631b]">
++      </select>
++    </div>
++
++    <!-- Recommendation card -->
++    <div id="sensorRecCard" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
++      <p class="text-xs font-bold uppercase text-[#0d631b] mb-2" data-fil="Rekomendasyon" data-en="Recommendation">Rekomendasyon</p>
++      <div class="flex items-center gap-3 mb-2">
++        <span class="material-symbols-outlined text-3xl text-[#0d631b]" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;">agriculture</span>
++        <div>
++          <p class="text-xl font-bold" id="sensorRecCrop">—</p>
++          <p class="text-sm text-gray-500" id="sensorRecConf">—</p>
++        </div>
++      </div>
++      <button id="sensorExplainBtn" type="button" class="text-sm font-bold text-[#0d631b] underline hidden" data-fil="Bakit?" data-en="Why?">Bakit?</button>
++      <p id="sensorExplainText" class="text-sm text-gray-500 italic mt-2"></p>
++    </div>
++
++    <!-- Sensor list buttons -->
++    <div id="sensorBtnWrap" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Mga Sensor" data-en="Sensors">Mga Sensor</p>
++      <div id="sensorBtnList" class="flex flex-wrap gap-2"></div>
++    </div>
++
++    <!-- Readings grid -->
++    <div id="sensorReadingsWrap" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Pagbasa ng Sensor" data-en="Sensor Readings">Pagbasa ng Sensor</p>
++      <div class="grid grid-cols-3 gap-2 text-sm">
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">N</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rN">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">P</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rP">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">K</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rK">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">pH</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rPh">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400" data-fil="Temp" data-en="Temp">Temp</p>
++          <p class="text-lg font-bold" id="rTemp">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400" data-fil="Ulan" data-en="Rain">Ulan</p>
++          <p class="text-lg font-bold" id="rRain">—</p>
++        </div>
++      </div>
++      <p class="text-xs text-gray-400 mt-3" id="sensorTimestamp"></p>
++    </div>
++  </div>
++
++  <!-- ─── Tab 3: History ─── -->
++  <div id="tabHistory" class="hidden">
++    <div class="mb-4">
++      <label class="text-xs font-bold text-gray-500 uppercase mb-1 block" data-fil="Piliin ang Bukid" data-en="Select Farm">Piliin ang Bukid</label>
++      <select id="historyFarmSelect" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#0d631b]">
++      </select>
++    </div>
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
++      <table class="w-full text-left text-sm">
++        <thead class="bg-gray-50">
++          <tr>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500" data-fil="Petsa" data-en="Date">Petsa</th>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500">pH</th>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500" data-fil="Temp" data-en="Temp">Temp</th>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500" data-fil="Pananim" data-en="Crop">Pananim</th>
++          </tr>
++        </thead>
++        <tbody id="historyBody">
++          <tr><td colspan="4" class="py-6 text-center text-sm text-gray-400" data-fil="Pumili ng bukid upang makita ang kasaysayan." data-en="Select a farm to view history.">Pumili ng bukid upang makita ang kasaysayan.</td></tr>
++        </tbody>
++      </table>
++    </div>
++  </div>
++
++  <!-- ─── Tab 4: Settings ─── -->
++  <div id="tabSettings" class="hidden space-y-4">
++    <!-- Language -->
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Wika" data-en="Language">Wika</p>
++      <div class="flex gap-2">
++        <button class="lang-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-lang="fil" type="button" data-fil="Tagalog" data-en="Tagalog">Tagalog</button>
++        <button class="lang-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-lang="en" type="button" data-fil="Ingles" data-en="English">Ingles</button>
++      </div>
++    </div>
++    <!-- Theme -->
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Tema" data-en="Theme">Tema</p>
++      <div class="flex gap-2">
++        <button class="theme-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-theme="light" type="button" data-fil="Maliwanag" data-en="Light">Maliwanag</button>
++        <button class="theme-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-theme="dark" type="button" data-fil="Madilim" data-en="Dark">Madilim</button>
++      </div>
++    </div>
++    <!-- Logout -->
++    <button id="logoutBtn" type="button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-2xl transition-colors text-sm" data-fil="Mag-logout" data-en="Log Out">Mag-logout</button>
++  </div>
++
++</div><!-- end content -->
++
++<!-- ===== BOTTOM NAV ===== -->
++<nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 z-10">
++  <button class="nav-btn active flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabMyFarms" type="button">
++    <span class="material-symbols-outlined text-xl">home</span>
++    <span class="text-[11px] font-semibold" data-fil="Bukid" data-en="Farms">Bukid</span>
++  </button>
++  <button class="nav-btn flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabSensors" type="button">
++    <span class="material-symbols-outlined text-xl">sensors</span>
++    <span class="text-[11px] font-semibold" data-fil="Sensor" data-en="Sensors">Sensor</span>
++  </button>
++  <button class="nav-btn flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabHistory" type="button">
++    <span class="material-symbols-outlined text-xl">history</span>
++    <span class="text-[11px] font-semibold" data-fil="Kasaysayan" data-en="History">Kasaysayan</span>
++  </button>
++  <button class="nav-btn flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabSettings" type="button">
++    <span class="material-symbols-outlined text-xl">settings</span>
++    <span class="text-[11px] font-semibold" data-fil="Setting" data-en="Settings">Setting</span>
++  </button>
+ </nav>
+ 
+ <script>
+-        const API = ""; // ponytail: relative — frontend is now served by the same FastAPI process
+-        // ponytail: read-only farmer view, no password — typing your farm name or plot ID is the "login".
+-        // Fine for a single-cooperative demo; add real per-farmer auth if this goes multi-tenant.
+-        let currentReadingId = null;
+-        let currentFarm = null;
+-
+-        // --- Tab navigation ---
+-        function setTab(tabId) {
+-            document.querySelectorAll("[id^='tab']").forEach(el => el.classList.toggle("hidden", el.id !== tabId));
+-            document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+-        }
+-        document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
+-
+-        async function lookup(plotId) {
+-            document.getElementById("farmSearchError").classList.add("hidden");
+-            document.getElementById("result").classList.add("hidden");
+-            const res = await fetch(`${API}/readings/${encodeURIComponent(plotId)}`);
+-            const readings = await res.json();
+-            if (!readings.length) {
+-                document.getElementById("farmSearchError").classList.remove("hidden");
+-                return;
+-            }
+-            render(readings);
+-        }
+-
+-        async function lookupFarm(farmName) {
+-            document.getElementById("farmSearchError").classList.add("hidden");
+-            document.getElementById("result").classList.add("hidden");
+-            document.getElementById("sensorListCard").classList.add("hidden");
+-            document.getElementById("farmPredictCard").classList.add("hidden");
+-            document.getElementById("dashSummaryCard").classList.add("hidden");
+-            const res = await fetch(`${API}/farms/by-name/${encodeURIComponent(farmName)}`);
+-            if (!res.ok) {
+-                document.getElementById("farmSearchError").classList.remove("hidden");
+-                return;
+-            }
+-            const farm = await res.json();
+-            if (!farm.sensors.length) {
+-                document.getElementById("farmSearchError").textContent = "This farm has no sensors yet.";
+-                document.getElementById("farmSearchError").classList.remove("hidden");
+-                return;
+-            }
+-            currentFarm = farm;
+-            document.getElementById("noSensorListMsg").classList.add("hidden");
+-
+-            const withReading = farm.sensors.filter(s => s.soil_n !== null && s.soil_n !== undefined);
+-            const noReading = farm.sensors.length - withReading.length;
+-            document.getElementById("dashWithReading").textContent = withReading.length;
+-            document.getElementById("dashNoReading").textContent = noReading;
+-            document.getElementById("dashSummaryCard").classList.remove("hidden");
+-
+-            const list = document.getElementById("sensorList");
+-            list.innerHTML = "";
+-            farm.sensors.forEach((s, i) => {
+-                const hasReading = s.soil_n !== null && s.soil_n !== undefined;
+-                const btn = document.createElement("button");
+-                btn.className = "border rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2 transition-colors " +
+-                    (hasReading ? "text-[#0d631b] border-[#0d631b] hover:bg-[#0d631b] hover:text-white" : "text-gray-400 border-gray-300 hover:bg-gray-100");
+-                btn.innerHTML = `<span class="inline-block w-2 h-2 rounded-full" style="background:${hasReading ? "#2e7d32" : "#9ca3af"}"></span>Sensor ${i + 1}`;
+-                btn.addEventListener("click", () => { lookup(s.plot_id); setTab("tabSensors"); });
+-                list.appendChild(btn);
+-            });
+-            document.getElementById("sensorListCard").classList.remove("hidden");
+-            lookup(farm.sensors[0].plot_id);
+-            predictFarm(farm.farm_id);
+-        }
+-
+-        async function predictFarm(farmId) {
+-            const card = document.getElementById("farmPredictCard");
+-            try {
+-                const res = await fetch(`${API}/farms/${farmId}/predict`);
+-                if (!res.ok) { card.classList.add("hidden"); return; }
+-                const data = await res.json();
+-                document.getElementById("farmPredictCrop").textContent = data.crop || "Walang katugma";
+-                document.getElementById("farmPredictConfidence").textContent = data.crop ? `${Math.round(data.confidence * 100)}% confidence` : (data.message || "-");
+-                document.getElementById("farmPredictSensorCount").textContent = `Based on ${data.sensor_count} sensor(s) with readings`;
+-                card.classList.remove("hidden");
+-            } catch {
+-                card.classList.add("hidden");
+-            }
+-        }
+-
+-        function render(readings) {
+-            const head = readings[0];
+-            const latest = readings.find(r => r.soil_n !== null) || null;
+-            currentReadingId = latest ? latest.id : null;
+-
+-            document.getElementById("resOwner").textContent = head.owner_name || "-";
+-            document.getElementById("resPlotId").textContent = head.plot_id;
+-            document.getElementById("resCoords").textContent = `${head.lat.toFixed(4)}° N, ${head.lng.toFixed(4)}° E`;
+-
+-            const explainBtn = document.getElementById("explainBtn");
+-            document.getElementById("explainText").textContent = "";
+-            explainBtn.textContent = "Bakit? / Why?";
+-
+-            if (latest && latest.predicted_crop) {
+-                document.getElementById("resCrop").textContent = latest.predicted_crop;
+-                document.getElementById("resConfidence").textContent = `${Math.round(latest.confidence * 100)}% confidence`;
+-                document.getElementById("resMessage").textContent = "";
+-                explainBtn.classList.remove("hidden");
+-            } else if (latest) {
+-                document.getElementById("resCrop").textContent = "Walang katugma";
+-                document.getElementById("resConfidence").textContent = "-";
+-                document.getElementById("resMessage").textContent = latest.message || "No confident match for this reading.";
+-                explainBtn.classList.add("hidden");
+-            } else {
+-                document.getElementById("resCrop").textContent = "Wala pang datos";
+-                document.getElementById("resConfidence").textContent = "-";
+-                document.getElementById("resMessage").textContent = "No readings yet for this plot.";
+-                explainBtn.classList.add("hidden");
+-            }
+-
+-            document.getElementById("rN").textContent = latest ? latest.soil_n : "-";
+-            document.getElementById("rP").textContent = latest ? latest.soil_p : "-";
+-            document.getElementById("rK").textContent = latest ? latest.soil_k : "-";
+-            document.getElementById("rPh").textContent = latest ? latest.soil_ph : "-";
+-            document.getElementById("rTemp").textContent = latest ? `${latest.air_temp_c}°C` : "-";
+-            document.getElementById("rMoisture").textContent = latest && latest.soil_moisture_pct != null ? `${latest.soil_moisture_pct}%` : "-";
+-            document.getElementById("resTimestamp").textContent = latest ? `Updated: ${new Date(latest.timestamp).toLocaleString()}` : "";
+-
+-            const body = document.getElementById("historyBody");
+-            body.innerHTML = "";
+-            for (const r of readings.filter(r => r.soil_n !== null).slice(0, 5)) {
+-                const tr = document.createElement("tr");
+-                tr.className = "border-t";
+-                tr.innerHTML = `<td class="py-1">${new Date(r.timestamp).toLocaleDateString()}</td><td class="py-1">${r.soil_ph}</td><td class="py-1">${r.air_temp_c}°C</td><td class="py-1">${r.predicted_crop || "-"}</td>`;
+-                body.appendChild(tr);
+-            }
+-
+-            document.getElementById("result").classList.remove("hidden");
+-        }
+-
+-        document.getElementById("explainBtn").addEventListener("click", async (e) => {
+-            if (!currentReadingId) return;
+-            e.target.textContent = "Sandali lang...";
+-            e.target.disabled = true;
+-            try {
+-                const lang = localStorage.getItem("lang") === "both" ? "en" : (localStorage.getItem("lang") || "en");
+-                const res = await fetch(`${API}/readings/${currentReadingId}/explain?lang=${lang}`);
+-                const data = await res.json();
+-                document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
+-            } catch {
+-                document.getElementById("explainText").textContent = "Could not reach the offline AI model.";
+-            }
+-            e.target.textContent = "Bakit? / Why?";
+-            e.target.disabled = false;
+-        });
+-
+-        document.getElementById("farmSearchBtn").addEventListener("click", () => {
+-            const farmName = document.getElementById("farmNameInput").value.trim();
+-            if (farmName) lookupFarm(farmName);
+-        });
+-        document.getElementById("farmNameInput").addEventListener("keydown", (e) => {
+-            if (e.key === "Enter") document.getElementById("farmSearchBtn").click();
+-        });
+-
+-        // --- Settings: theme + language ---
+-        function applyLanguage(pref) {
+-            // ponytail: bilingual labels in this file are plain "Tagalog / English" text,
+-            // not separated spans like dashboard.html — so language pref only affects future additions.
+-            localStorage.setItem("lang", pref);
+-        }
+-        function applyTheme(theme) {
+-            document.documentElement.classList.toggle("dark", theme === "dark");
+-        }
+-        const savedTheme = localStorage.getItem("theme") || "light";
+-        const savedLang = localStorage.getItem("lang") || "both";
+-        applyTheme(savedTheme);
+-        document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === savedTheme));
+-        document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === savedLang));
+-        document.querySelectorAll(".theme-option").forEach(btn => btn.addEventListener("click", () => {
+-            localStorage.setItem("theme", btn.dataset.theme);
+-            applyTheme(btn.dataset.theme);
+-            document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b === btn));
+-        }));
+-        document.querySelectorAll(".lang-option").forEach(btn => btn.addEventListener("click", () => {
+-            applyLanguage(btn.dataset.lang);
+-            document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b === btn));
+-        }));
+-
+-        const params = new URLSearchParams(location.search);
+-        const urlFarm = params.get("farm");
+-        const urlPlot = params.get("plot");
+-        if (urlFarm) {
+-            document.getElementById("farmNameInput").value = urlFarm;
+-            lookupFarm(urlFarm);
+-        } else if (urlPlot) {
+-            lookup(urlPlot);
+-            setTab("tabSensors");
+-        } else {
+-            document.getElementById("noSensorListMsg").classList.remove("hidden");
+-        }
+-    </script>
+-</body></html>
++// ===== CONSTANTS =====
++const API = "";
++const CROP_FIL = {
++  rice:"palay", maize:"mais", chickpea:"garbanzos", kidneybeans:"habichuelas",
++  pigeonpeas:"kadyos", mothbeans:"paayap", mungbean:"monggo", blackgram:"itim na munggo",
++  lentil:"lentil", pomegranate:"granada", banana:"saging", mango:"mangga",
++  grapes:"ubas", watermelon:"pakwan", muskmelon:"melon", apple:"mansanas",
++  orange:"dalandan", papaya:"papaya", coconut:"niyog", cotton:"bulak",
++  jute:"yute", coffee:"kape",
++};
++
++// ===== STATE =====
++let lang = localStorage.getItem("lang") || "fil";
++let currentSensorFarmId = null;
++let currentSensorEn = null; // for explain button
++
++// ===== LANGUAGE HELPERS =====
++function cropLabel(en) {
++  if (!en) return "—";
++  const fil = CROP_FIL[en.toLowerCase()] || en;
++  return lang === "en" ? en : fil;
++}
++
++function applyLanguage(pref) {
++  lang = pref;
++  localStorage.setItem("lang", pref);
++  document.querySelectorAll("[data-fil]").forEach(el => {
++    // skip inputs / selects
++    if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "OPTION") return;
++    el.textContent = pref === "en" ? (el.dataset.en || el.dataset.fil) : el.dataset.fil;
++  });
++  // Update lang toggle
++  const toggle = document.getElementById("langToggle");
++  toggle.textContent = pref === "fil" ? "EN" : "FIL";
++  // Update active states in Settings
++  document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === pref));
++  // Refresh any displayed crop labels
++  if (currentSensorEn) {
++    document.getElementById("sensorRecCrop").textContent = cropLabel(currentSensorEn);
++  }
++}
++
++// ===== THEME =====
++function applyTheme(theme) {
++  document.documentElement.classList.toggle("dark", theme === "dark");
++  localStorage.setItem("theme", theme);
++  document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === theme));
++}
++
++// ===== TAB NAVIGATION =====
++const ALL_TABS = ["tabMyFarms", "tabSensors", "tabHistory", "tabSettings"];
++
++function setTab(tabId) {
++  ALL_TABS.forEach(id => {
++    document.getElementById(id).classList.toggle("hidden", id !== tabId);
++  });
++  document.querySelectorAll(".nav-btn").forEach(b => {
++    b.classList.toggle("active", b.dataset.tab === tabId);
++  });
++}
++
++document.querySelectorAll(".nav-btn").forEach(btn => {
++  btn.addEventListener("click", () => setTab(btn.dataset.tab));
++});
++
++// ===== LOAD MY FARMS =====
++async function loadMyFarms() {
++  const container = document.getElementById("farmCardList");
++  container.innerHTML = "";
++  for (const farm of farmerAuth.farms) {
++    const card = buildFarmCardSkeleton(farm);
++    container.appendChild(card);
++    fetchFarmPredict(farm);
++  }
++}
++
++function buildFarmCardSkeleton(farm) {
++  const card = document.createElement("div");
++  card.className = "bg-white rounded-2xl shadow-sm border border-gray-100 p-4 cursor-pointer active:scale-[0.98] transition-transform";
++  card.setAttribute("data-farm-id", farm.farm_id);
++
++  const inner = document.createElement("div");
++  inner.className = "flex items-start gap-3";
++
++  const iconWrap = document.createElement("div");
++  iconWrap.className = "w-10 h-10 rounded-xl bg-[#e8f5e9] flex items-center justify-center flex-shrink-0";
++  const icon = document.createElement("span");
++  icon.className = "material-symbols-outlined text-[#0d631b]";
++  icon.style.fontVariationSettings = "'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24";
++  icon.textContent = "yard";
++  iconWrap.appendChild(icon);
++
++  const info = document.createElement("div");
++  info.className = "flex-1 min-w-0";
++  const nameEl = document.createElement("p");
++  nameEl.className = "font-bold text-sm truncate";
++  nameEl.textContent = farm.farm_name;
++  const sensorCount = document.createElement("p");
++  sensorCount.className = "text-xs text-gray-400";
++  sensorCount.textContent = `${farm.sensors.length} sensor${farm.sensors.length !== 1 ? "s" : ""}`;
++  info.appendChild(nameEl);
++  info.appendChild(sensorCount);
++
++  const recWrap = document.createElement("div");
++  recWrap.className = "text-right flex-shrink-0";
++  const recLabel = document.createElement("p");
++  recLabel.className = "text-[10px] font-bold text-gray-400 uppercase mb-0.5";
++  recLabel.textContent = lang === "en" ? "Recommendation" : "Rekomendasyon";
++  const recCrop = document.createElement("p");
++  recCrop.className = "text-sm font-bold text-[#0d631b]";
++  recCrop.id = `farmRec_${farm.farm_id}`;
++  recCrop.textContent = "…";
++  const recConf = document.createElement("p");
++  recConf.className = "text-xs text-gray-400";
++  recConf.id = `farmConf_${farm.farm_id}`;
++  recWrap.appendChild(recLabel);
++  recWrap.appendChild(recCrop);
++  recWrap.appendChild(recConf);
++
++  inner.appendChild(iconWrap);
++  inner.appendChild(info);
++  inner.appendChild(recWrap);
++  card.appendChild(inner);
++
++  // Click: switch to sensors tab
++  card.addEventListener("click", () => {
++    setTab("tabSensors");
++    const sel = document.getElementById("sensorFarmSelect");
++    sel.value = farm.farm_id;
++    loadSensors(farm.farm_id);
++  });
++
++  return card;
++}
++
++async function fetchFarmPredict(farm) {
++  try {
++    const res = await fetch(`${API}/farms/${encodeURIComponent(farm.farm_id)}/predict`);
++    if (!res.ok) return;
++    const data = await res.json();
++    const cropEl = document.getElementById(`farmRec_${farm.farm_id}`);
++    const confEl = document.getElementById(`farmConf_${farm.farm_id}`);
++    if (!cropEl) return;
++    if (data.crop) {
++      cropEl.textContent = cropLabel(data.crop);
++      cropEl.setAttribute("data-crop-en", data.crop);
++      if (confEl) confEl.textContent = `${Math.round((data.confidence || 0) * 100)}%`;
++    } else {
++      cropEl.textContent = lang === "en" ? "No match" : "Walang katugma";
++      if (confEl) confEl.textContent = "";
++    }
++  } catch {
++    // silently ignore network errors on cards
++  }
++}
++
++// ===== LOAD SENSORS TAB =====
++async function loadSensors(farmId) {
++  currentSensorFarmId = farmId;
++  currentSensorEn = null;
++
++  // Reset UI
++  document.getElementById("sensorRecCard").classList.add("hidden");
++  document.getElementById("sensorBtnWrap").classList.add("hidden");
++  document.getElementById("sensorReadingsWrap").classList.add("hidden");
++  document.getElementById("sensorExplainText").textContent = "";
++  document.getElementById("sensorExplainBtn").classList.add("hidden");
++  document.getElementById("sensorBtnList").innerHTML = "";
++  clearReadings();
++
++  const farm = farmerAuth.farms.find(f => f.farm_id === farmId);
++  if (!farm) return;
++
++  // Fetch predict
++  try {
++    const res = await fetch(`${API}/farms/${encodeURIComponent(farmId)}/predict`);
++    if (res.ok) {
++      const data = await res.json();
++      currentSensorEn = data.crop || null;
++      const recCard = document.getElementById("sensorRecCard");
++      document.getElementById("sensorRecCrop").textContent = data.crop ? cropLabel(data.crop) : (lang === "en" ? "No match" : "Walang katugma");
++      document.getElementById("sensorRecConf").textContent = data.crop ? `${Math.round((data.confidence || 0) * 100)}% confidence` : "";
++      if (data.crop) {
++        document.getElementById("sensorExplainBtn").classList.remove("hidden");
++      }
++      recCard.classList.remove("hidden");
++    }
++  } catch { /* ignore */ }
++
++  // Build sensor buttons
++  if (farm.sensors.length) {
++    const btnList = document.getElementById("sensorBtnList");
++    farm.sensors.forEach((sensor, i) => {
++      const hasReading = sensor.soil_n !== null && sensor.soil_n !== undefined;
++      const btn = document.createElement("button");
++      btn.type = "button";
++      btn.className = "sensor-btn border rounded-xl px-3 py-2 text-sm font-bold flex items-center gap-2 " +
++        (hasReading
++          ? "text-[#0d631b] border-[#0d631b]"
++          : "text-gray-400 border-gray-300");
++      const dot = document.createElement("span");
++      dot.className = "inline-block w-2 h-2 rounded-full";
++      dot.style.background = hasReading ? "#0d631b" : "#9ca3af";
++      btn.appendChild(dot);
++      btn.appendChild(document.createTextNode(`Sensor ${i + 1}`));
++      btn.addEventListener("click", () => {
++        document.querySelectorAll(".sensor-btn").forEach(b => b.classList.remove("active"));
++        btn.classList.add("active");
++        showReading(sensor);
++      });
++      btnList.appendChild(btn);
++    });
++    document.getElementById("sensorBtnWrap").classList.remove("hidden");
++
++    // Auto-show first sensor with reading
++    const first = farm.sensors.find(s => s.soil_n !== null && s.soil_n !== undefined) || farm.sensors[0];
++    if (first) {
++      const firstBtn = btnList.children[farm.sensors.indexOf(first)];
++      if (firstBtn) firstBtn.classList.add("active");
++      showReading(first);
++    }
++  }
++}
++
++function clearReadings() {
++  ["rN","rP","rK","rPh","rTemp","rRain"].forEach(id => {
++    document.getElementById(id).textContent = "—";
++  });
++  document.getElementById("sensorTimestamp").textContent = "";
++}
++
++function showReading(sensor) {
++  const wrap = document.getElementById("sensorReadingsWrap");
++  if (!sensor || (sensor.soil_n === null || sensor.soil_n === undefined)) {
++    clearReadings();
++    wrap.classList.remove("hidden");
++    return;
++  }
++  document.getElementById("rN").textContent = sensor.soil_n ?? "—";
++  document.getElementById("rP").textContent = sensor.soil_p ?? "—";
++  document.getElementById("rK").textContent = sensor.soil_k ?? "—";
++  document.getElementById("rPh").textContent = sensor.soil_ph ?? "—";
++  document.getElementById("rTemp").textContent = sensor.air_temp_c != null ? `${sensor.air_temp_c}°C` : "—";
++  document.getElementById("rRain").textContent = sensor.rainfall_mm != null ? `${sensor.rainfall_mm}mm` : "—";
++  if (sensor.timestamp) {
++    document.getElementById("sensorTimestamp").textContent = `Updated: ${new Date(sensor.timestamp).toLocaleString()}`;
++  }
++  wrap.classList.remove("hidden");
++}
++
++// ===== EXPLAIN BUTTON (Sensors tab) =====
++document.getElementById("sensorExplainBtn").addEventListener("click", async function () {
++  if (!currentSensorFarmId) return;
++  const btn = this;
++  btn.textContent = lang === "en" ? "Thinking..." : "Sandali lang...";
++  btn.disabled = true;
++  document.getElementById("sensorExplainText").textContent = "";
++  try {
++    const res = await fetch(`${API}/farms/${encodeURIComponent(currentSensorFarmId)}/explain?lang=${lang}`);
++    const data = await res.json();
++    document.getElementById("sensorExplainText").textContent = data.explanation || data.detail || (lang === "en" ? "No explanation available." : "Walang paliwanag.");
++  } catch {
++    document.getElementById("sensorExplainText").textContent = lang === "en" ? "Could not reach the AI model." : "Hindi maabot ang AI model.";
++  }
++  btn.textContent = lang === "en" ? (btn.dataset.en || "Why?") : (btn.dataset.fil || "Bakit?");
++  btn.disabled = false;
++});
++
++// ===== LOAD HISTORY TAB =====
++async function loadHistory(farmId) {
++  const body = document.getElementById("historyBody");
++  body.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-sm text-gray-400">${lang === "en" ? "Loading..." : "Naglo-load..."}</td></tr>`;
++  const farm = farmerAuth.farms.find(f => f.farm_id === farmId);
++  if (!farm || !farm.sensors.length) {
++    body.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-sm text-gray-400">${lang === "en" ? "No sensors." : "Walang sensor."}</td></tr>`;
++    return;
++  }
++  // Fetch readings for each sensor and collect all rows
++  const rows = [];
++  await Promise.all(farm.sensors.map(async sensor => {
++    try {
++      const res = await fetch(`${API}/readings/${encodeURIComponent(sensor.plot_id)}`);
++      if (!res.ok) return;
++      const readings = await res.json();
++      readings.filter(r => r.soil_n !== null && r.soil_n !== undefined).forEach(r => rows.push(r));
++    } catch { /* ignore */ }
++  }));
++
++  if (!rows.length) {
++    body.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-sm text-gray-400">${lang === "en" ? "No readings yet." : "Wala pang datos."}</td></tr>`;
++    return;
++  }
++
++  // Sort descending by timestamp
++  rows.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
++
++  body.innerHTML = "";
++  for (const r of rows.slice(0, 20)) {
++    const tr = document.createElement("tr");
++    tr.className = "border-t border-gray-100";
++    const date = document.createElement("td");
++    date.className = "py-2 px-4 text-xs text-gray-600";
++    date.textContent = new Date(r.timestamp).toLocaleDateString();
++    const ph = document.createElement("td");
++    ph.className = "py-2 px-4 text-xs";
++    ph.textContent = r.soil_ph ?? "—";
++    const temp = document.createElement("td");
++    temp.className = "py-2 px-4 text-xs";
++    temp.textContent = r.air_temp_c != null ? `${r.air_temp_c}°C` : "—";
++    const crop = document.createElement("td");
++    crop.className = "py-2 px-4 text-xs font-medium text-[#0d631b]";
++    crop.textContent = r.predicted_crop ? cropLabel(r.predicted_crop) : "—";
++    tr.appendChild(date);
++    tr.appendChild(ph);
++    tr.appendChild(temp);
++    tr.appendChild(crop);
++    body.appendChild(tr);
++  }
++}
++
++// ===== FARM SELECTS =====
++function populateFarmSelects() {
++  ["sensorFarmSelect", "historyFarmSelect"].forEach(selectId => {
++    const sel = document.getElementById(selectId);
++    sel.innerHTML = "";
++    farmerAuth.farms.forEach(farm => {
++      const opt = document.createElement("option");
++      opt.value = farm.farm_id;
++      opt.textContent = farm.farm_name;
++      sel.appendChild(opt);
++    });
++  });
++}
++
++document.getElementById("sensorFarmSelect").addEventListener("change", function () {
++  loadSensors(this.value);
++});
++
++document.getElementById("historyFarmSelect").addEventListener("change", function () {
++  loadHistory(this.value);
++});
++
++// History tab nav button — auto-load on first visit
++document.querySelectorAll(".nav-btn").forEach(btn => {
++  if (btn.dataset.tab === "tabHistory") {
++    btn.addEventListener("click", () => {
++      const sel = document.getElementById("historyFarmSelect");
++      if (sel.value) loadHistory(sel.value);
++    });
++  }
++  if (btn.dataset.tab === "tabSensors") {
++    btn.addEventListener("click", () => {
++      const sel = document.getElementById("sensorFarmSelect");
++      if (sel.value && !currentSensorFarmId) loadSensors(sel.value);
++    });
++  }
++});
++
++// ===== SETTINGS =====
++document.querySelectorAll(".lang-option").forEach(btn => {
++  btn.addEventListener("click", () => applyLanguage(btn.dataset.lang));
++});
++
++document.querySelectorAll(".theme-option").forEach(btn => {
++  btn.addEventListener("click", () => applyTheme(btn.dataset.theme));
++});
++
++document.getElementById("langToggle").addEventListener("click", () => {
++  applyLanguage(lang === "fil" ? "en" : "fil");
++});
++
++document.getElementById("logoutBtn").addEventListener("click", () => {
++  sessionStorage.removeItem("farmerAuth");
++  window.location.replace("/");
++});
++
++// ===== INIT =====
++(function init() {
++  // Farmer name in header
++  document.getElementById("headerFarmerName").textContent = farmerAuth.name || farmerAuth.id || "";
++
++  // Populate selects
++  populateFarmSelects();
++
++  // Apply saved theme & language
++  const savedTheme = localStorage.getItem("theme") || "light";
++  applyTheme(savedTheme);
++  applyLanguage(lang);
++
++  // Mark correct theme option active
++  document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === savedTheme));
++
++  // Load My Farms tab
++  loadMyFarms();
++
++  // Auto-load first farm in sensors
++  if (farmerAuth.farms.length) {
++    loadSensors(farmerAuth.farms[0].farm_id);
++  }
++})();
++</script>
++</body>
++</html>

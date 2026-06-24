@@ -5,6 +5,7 @@ An offline-capable crop recommendation system for Filipino farmer cooperatives. 
 ## Run
 
 ```
+cd app
 py -m pip install fastapi uvicorn joblib pandas scikit-learn requests transformers torch sentencepiece
 py -m uvicorn main:app --reload
 ```

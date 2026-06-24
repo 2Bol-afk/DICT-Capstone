@@ -1,0 +1,3785 @@
+4e4fc83 chore: remove old pages replaced by admin.html and farmer.html redesign
+c59b2ef chore: add capstone repo scaffolding files and folders
+2bb0da7 feat: build farmer SPA with My Farms, Sensors, History, Settings tabs
+de27d95 fix: remove XSS in onclick interpolation, fix stale dashboard.html reference
+bb018d2 feat: build admin SPA with dashboard, farmers, and farms tabs
+7ae6292 feat: redesign login page with farmer and admin cards
+747c05f feat: add farmer CRUD endpoints and farm-farmer assignment
+f90e4e4 feat: add farmers table and farmer db functions
+ AGENTS.md                 |  10 +
+ DESIGN.md                 |   3 +
+ PROMPTS.md                |  15 +
+ README.md                 |  23 ++
+ TASKS.md                  |  10 +
+ db.py                     |  65 +++
+ frontend/add_plot.html    | 269 -------------
+ frontend/add_reading.html | 319 ---------------
+ frontend/admin.html       | 675 ++++++++++++++++++++++++++++++++
+ frontend/dashboard.html   | 979 ----------------------------------------------
+ frontend/farmer.html      | 938 ++++++++++++++++++++++++++++----------------
+ frontend/index.html       | 101 +++++
+ main.py                   | 108 +++++
+ presentation/.gitkeep     |   1 +
+ proposal/.gitkeep         |   1 +
+ prototype/.gitkeep        |   1 +
+ 16 files changed, 1612 insertions(+), 1906 deletions(-)
+diff --git a/AGENTS.md b/AGENTS.md
+new file mode 100644
+index 0000000..2ea5b99
+--- /dev/null
++++ b/AGENTS.md
+@@ -0,0 +1,10 @@
++# AI Agents
++
++This project was built with Claude Code (claude-sonnet-4-6).
++
++## Agent Instructions
++- Backend: FastAPI app in `main.py`, DB functions in `db.py`
++- Frontend: Static HTML in `frontend/` served by FastAPI at root
++- Run server: `py -m uvicorn main:app --reload`
++- Models: `crop_model.pkl` (sklearn), Ollama qwen2.5:3b, NLLB-200 in `model/huggingface/`
++- DB: SQLite at `readings.db`
+diff --git a/DESIGN.md b/DESIGN.md
+new file mode 100644
+index 0000000..2343db3
+--- /dev/null
++++ b/DESIGN.md
+@@ -0,0 +1,3 @@
++# Design
++
++See full design spec: [docs/superpowers/specs/2026-06-24-ui-redesign-farmer-management-design.md](docs/superpowers/specs/2026-06-24-ui-redesign-farmer-management-design.md)
+diff --git a/PROMPTS.md b/PROMPTS.md
+new file mode 100644
+index 0000000..a4f9743
+--- /dev/null
++++ b/PROMPTS.md
+@@ -0,0 +1,15 @@
++# Prompts
++
++Key prompts used during AI-assisted development.
++
++## UI Redesign
++"use deepthink and report and proper ui and remake the all pages and proper managing for farmers and log out button"
++
++## Farmer Management
++"add authentication for the admin username admin password admin also"
++
++## Language Support
++"the name of plant also be dynamic based on the language user choose also remove the / i want it to be fully dynamic based on the user language selection"
++
++## Offline AI
++"run a test file to test the ai recommendation"
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..84ab5b2
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,23 @@
++# Sadiang-Abay Crop Recommendation System
++
++An offline-capable crop recommendation system for Filipino farmer cooperatives. Uses ML (scikit-learn) for crop prediction, a local LLM (Ollama/Qwen2.5) for AI explanations, and NLLB-200 for offline Tagalog translation.
++
++## Run
++
++```
++py -m pip install fastapi uvicorn joblib pandas scikit-learn requests transformers torch sentencepiece
++py -m uvicorn main:app --reload
++```
++
++Open http://127.0.0.1:8000
++
++## Login
++- **Admin:** username `admin`, password `admin` → redirects to admin dashboard
++- **Farmer:** enter farmer name → redirects to farmer dashboard
++
++## Stack
++- Backend: Python / FastAPI / SQLite
++- ML: scikit-learn RandomForest crop recommendation
++- AI Explain: Ollama (qwen2.5:3b) — offline LLM
++- Translation: facebook/nllb-200-distilled-600M — offline Tagalog
++- Frontend: Vanilla HTML + Tailwind CSS
+diff --git a/TASKS.md b/TASKS.md
+new file mode 100644
+index 0000000..237d226
+--- /dev/null
++++ b/TASKS.md
+@@ -0,0 +1,10 @@
++# Tasks
++
++- [x] ML crop recommendation model (train_crop_model.py)
++- [x] FastAPI backend with sensor readings and farm management
++- [x] Offline AI explanation (Ollama + Qwen2.5:3b)
++- [x] Offline Tagalog translation (NLLB-200)
++- [x] Farmer account system (one farmer, many farms)
++- [x] Admin SPA (Dashboard, Farmers, Farms tabs)
++- [x] Farmer SPA (My Farms, Sensors, History, Settings)
++- [x] Login page with role-based access
+diff --git a/db.py b/db.py
+index 140c6cf..93c2720 100644
+--- a/db.py
++++ b/db.py
+@@ -29,40 +29,53 @@ SCHEMA_FARMS = """
+ CREATE TABLE IF NOT EXISTS farms (
+     farm_id TEXT PRIMARY KEY,
+     farm_name TEXT,
+     owner_name TEXT,
+     hectares REAL,
+     polygon TEXT NOT NULL,
+     created_at TEXT NOT NULL
+ )
+ """
+ 
++SCHEMA_FARMERS = """
++CREATE TABLE IF NOT EXISTS farmers (
++    id TEXT PRIMARY KEY,
++    name TEXT UNIQUE NOT NULL,
++    created_at TEXT NOT NULL
++)
++"""
++
+ 
+ @contextmanager
+ def get_conn():
+     conn = sqlite3.connect(DB_PATH)
+     conn.row_factory = sqlite3.Row
+     try:
+         yield conn
+         conn.commit()
+     finally:
+         conn.close()
+ 
+ 
+ def init_db():
+     with get_conn() as conn:
+         conn.execute(SCHEMA)
+         conn.execute(SCHEMA_FARMS)
++        conn.execute(SCHEMA_FARMERS)
+         try:
+             conn.execute("ALTER TABLE farms ADD COLUMN farm_name TEXT")
+         except sqlite3.OperationalError:
+             pass  # ponytail: already migrated on a prior run
++        try:
++            conn.execute("ALTER TABLE farms ADD COLUMN farmer_id TEXT REFERENCES farmers(id) ON DELETE SET NULL")
++        except sqlite3.OperationalError:
++            pass  # already migrated
+ 
+ 
+ def insert_farm(farm: dict) -> dict:
+     with get_conn() as conn:
+         conn.execute(
+             "INSERT INTO farms (farm_id, farm_name, owner_name, hectares, polygon, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+             (farm["farm_id"], farm["farm_name"], farm["owner_name"], farm["hectares"], farm["polygon"], farm["created_at"]),
+         )
+     return get_farm(farm["farm_id"])
+ 
+@@ -168,10 +181,62 @@ def get_latest_per_plot() -> list[dict]:
+             SELECT r.* FROM readings r
+             INNER JOIN (
+                 SELECT plot_id, MAX(timestamp) AS max_ts
+                 FROM readings
+                 GROUP BY plot_id
+             ) latest
+             ON r.plot_id = latest.plot_id AND r.timestamp = latest.max_ts
+             """
+         )
+         return [dict(r) for r in cur.fetchall()]
++
++
++def insert_farmer(farmer: dict) -> dict:
++    with get_conn() as conn:
++        conn.execute(
++            "INSERT INTO farmers (id, name, created_at) VALUES (?, ?, ?)",
++            (farmer["id"], farmer["name"], farmer["created_at"]),
++        )
++    return get_farmer(farmer["id"])
++
++
++def get_farmer(farmer_id: str) -> dict | None:
++    with get_conn() as conn:
++        cur = conn.execute("SELECT * FROM farmers WHERE id = ?", (farmer_id,))
++        row = cur.fetchone()
++        return dict(row) if row else None
++
++
++def get_farmer_by_name(name: str) -> dict | None:
++    with get_conn() as conn:
++        cur = conn.execute("SELECT * FROM farmers WHERE name = ?", (name,))
++        row = cur.fetchone()
++        return dict(row) if row else None
++
++
++def get_all_farmers() -> list[dict]:
++    with get_conn() as conn:
++        cur = conn.execute("""
++            SELECT f.*, COUNT(fm.farm_id) AS farm_count
++            FROM farmers f
++            LEFT JOIN farms fm ON fm.farmer_id = f.id
++            GROUP BY f.id
++            ORDER BY f.created_at DESC
++        """)
++        return [dict(r) for r in cur.fetchall()]
++
++
++def update_farmer(farmer_id: str, name: str) -> dict | None:
++    with get_conn() as conn:
++        conn.execute("UPDATE farmers SET name = ? WHERE id = ?", (name, farmer_id))
++    return get_farmer(farmer_id)
++
++
++def delete_farmer(farmer_id: str):
++    with get_conn() as conn:
++        conn.execute("UPDATE farms SET farmer_id = NULL WHERE farmer_id = ?", (farmer_id,))
++        conn.execute("DELETE FROM farmers WHERE id = ?", (farmer_id,))
++
++
++def assign_farm_to_farmer(farm_id: str, farmer_id: str | None):
++    with get_conn() as conn:
++        conn.execute("UPDATE farms SET farmer_id = ? WHERE farm_id = ?", (farmer_id, farm_id))
+diff --git a/frontend/add_plot.html b/frontend/add_plot.html
+deleted file mode 100644
+index 0cd088e..0000000
+--- a/frontend/add_plot.html
++++ /dev/null
+@@ -1,269 +0,0 @@
+-<!DOCTYPE html><html class="light" lang="ph"><head>
+-<meta charset="utf-8">
+-<meta content="width=device-width, initial-scale=1.0" name="viewport">
+-<title>Agri-Admin | Magdagdag ng Bukid</title>
+-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap" rel="stylesheet">
+-<style>
+-        .material-symbols-outlined {
+-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+-        }
+-        .glass-panel {
+-            background: rgba(255, 255, 255, 0.8);
+-            backdrop-filter: blur(12px);
+-            -webkit-backdrop-filter: blur(12px);
+-        }
+-        .map-grid-pattern {
+-            background-image: radial-gradient(#707a6c 0.5px, transparent 0.5px);
+-            background-size: 24px 24px;
+-        }
+-    </style>
+-<script id="tailwind-config">
+-        tailwind.config = {
+-          darkMode: "class",
+-          theme: {
+-            extend: {
+-              "colors": {
+-                      "on-primary-fixed": "#002204",
+-                      "on-tertiary": "#ffffff",
+-                      "tertiary": "#923357",
+-                      "primary-fixed-dim": "#88d982",
+-                      "on-primary-container": "#cbffc2",
+-                      "on-secondary-container": "#735a00",
+-                      "secondary": "#755b00",
+-                      "surface-bright": "#f7fbf0",
+-                      "error-container": "#ffdad6",
+-                      "on-tertiary-fixed-variant": "#7f2448",
+-                      "secondary-container": "#fed255",
+-                      "on-background": "#181d17",
+-                      "on-tertiary-fixed": "#3f001c",
+-                      "tertiary-fixed-dim": "#ffb1c7",
+-                      "on-surface": "#181d17",
+-                      "primary-fixed": "#a3f69c",
+-                      "on-surface-variant": "#40493d",
+-                      "tertiary-fixed": "#ffd9e2",
+-                      "on-error-container": "#93000a",
+-                      "surface-tint": "#1b6d24",
+-                      "surface-variant": "#e0e4da",
+-                      "surface-container": "#ebefe5",
+-                      "inverse-primary": "#88d982",
+-                      "surface-container-highest": "#e0e4da",
+-                      "inverse-on-surface": "#eef2e8",
+-                      "surface-container-low": "#f1f5eb",
+-                      "outline-variant": "#bfcaba",
+-                      "surface-container-lowest": "#ffffff",
+-                      "on-secondary-fixed-variant": "#584400",
+-                      "primary-container": "#2e7d32",
+-                      "error": "#ba1a1a",
+-                      "secondary-fixed-dim": "#ecc246",
+-                      "on-secondary": "#ffffff",
+-                      "surface": "#f7fbf0",
+-                      "on-secondary-fixed": "#241a00",
+-                      "on-primary-fixed-variant": "#005312",
+-                      "inverse-surface": "#2d322b",
+-                      "surface-dim": "#d7dbd2",
+-                      "on-error": "#ffffff",
+-                      "surface-container-high": "#e5eadf",
+-                      "primary": "#0d631b",
+-                      "on-tertiary-container": "#ffedf0",
+-                      "outline": "#707a6c",
+-                      "tertiary-container": "#b14b6f",
+-                      "on-primary": "#ffffff",
+-                      "background": "#f7fbf0",
+-                      "secondary-fixed": "#ffe08e"
+-              },
+-              "borderRadius": {
+-                      "DEFAULT": "0.25rem",
+-                      "lg": "0.5rem",
+-                      "xl": "0.75rem",
+-                      "full": "9999px"
+-              },
+-              "spacing": {
+-                      "card-gap": "24px",
+-                      "container-padding": "24px",
+-                      "base": "8px",
+-                      "gutter": "16px",
+-                      "section-margin": "48px"
+-              },
+-              "fontFamily": {
+-                      "headline-lg": ["Plus Jakarta Sans"],
+-                      "body-md": ["Plus Jakarta Sans"],
+-                      "headline-sm": ["Plus Jakarta Sans"],
+-                      "headline-md": ["Plus Jakarta Sans"],
+-                      "label-md": ["Plus Jakarta Sans"],
+-                      "label-sm": ["Plus Jakarta Sans"],
+-                      "body-lg": ["Plus Jakarta Sans"]
+-              },
+-              "fontSize": {
+-                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+-                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+-                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+-                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+-                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+-                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+-                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+-              }
+-            }
+-          }
+-        }
+-    </script>
+-</head>
+-<body class="bg-background text-on-background font-body-md min-h-screen">
+-<!-- Dashboard Shell (Simulated Background) -->
+-<div class="flex h-screen overflow-hidden opacity-40 blur-sm pointer-events-none">
+-<!-- SideNavBar Shared Component Logic -->
+-<aside class="fixed left-0 top-0 h-screen flex flex-col p-base space-y-2 border-r border-outline-variant bg-surface-container dark:bg-surface-container-lowest w-64 md:w-72 z-10">
+-<div class="px-4 py-6">
+-<div class="font-headline-md text-headline-md font-bold text-on-primary-fixed-variant">Agri-Admin</div>
+-<div class="text-label-md font-label-md text-on-surface-variant">PH Cooperatives Portal</div>
+-</div>
+-<nav class="flex-1 space-y-1">
+-<div class="flex items-center gap-base px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-semibold transition-all">
+-<span class="material-symbols-outlined">map</span>
+-<span class="font-label-md text-label-md">Mapa ng Bukid / Farm Map</span>
+-</div>
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all">
+-<span class="material-symbols-outlined">grid_view</span>
+-<span class="font-label-md text-label-md">Lahat ng Bukid / All Plots</span>
+-</div>
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all">
+-<span class="material-symbols-outlined">analytics</span>
+-<span class="font-label-md text-label-md">Mga Tagasubaybay / Readings Log</span>
+-</div>
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all">
+-<span class="material-symbols-outlined">settings</span>
+-<span class="font-label-md text-label-md">Mga Setting / Settings</span>
+-</div>
+-</nav>
+-<div class="pt-4 border-t border-outline-variant">
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all">
+-<span class="material-symbols-outlined">help</span>
+-<span class="font-label-md text-label-md">Tulong / Help</span>
+-</div>
+-</div>
+-</aside>
+-<!-- Main Content Area (Background) -->
+-<main class="flex-1 ml-64 md:ml-72 bg-surface">
+-<!-- TopNavBar Shared Component Logic -->
+-<header class="sticky top-0 z-50 flex justify-between items-center w-full px-container-padding py-base bg-surface border-b border-outline-variant">
+-<div class="font-headline-sm text-headline-sm font-bold text-primary">Crop Recommendation Dashboard / Dashboard ng Rekomendasyon sa Pananim</div>
+-<div class="flex items-center gap-gutter">
+-<span class="text-label-md font-label-md text-on-surface-variant">EN/PH</span>
+-<span class="material-symbols-outlined text-primary">notifications</span>
+-<div class="w-10 h-10 rounded-full bg-surface-container-high"></div>
+-</div>
+-</header>
+-<div class="p-container-padding space-y-card-gap">
+-<!-- Dashboard Grid Placeholder -->
+-<div class="grid grid-cols-1 md:grid-cols-3 gap-card-gap">
+-<div class="h-48 bg-white rounded-xl shadow-sm border border-outline-variant"></div>
+-<div class="h-48 bg-white rounded-xl shadow-sm border border-outline-variant"></div>
+-<div class="h-48 bg-white rounded-xl shadow-sm border border-outline-variant"></div>
+-</div>
+-<div class="h-96 bg-white rounded-xl shadow-sm border border-outline-variant w-full"></div>
+-</div>
+-</main>
+-</div>
+-<!-- MODAL OVERLAY -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px]">
+-<!-- Modal Content -->
+-<div class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-[0px_24px_48px_-12px_rgba(31,41,55,0.15)] overflow-hidden animate-in fade-in zoom-in duration-300">
+-<!-- Modal Header -->
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+-<h2 class="font-headline-md text-headline-md text-on-surface">
+-                    Magdagdag ng Bukid <span class="text-on-surface-variant font-medium">/ Add Plot</span>
+-</h2>
+-<button class="text-on-surface-variant hover:text-error transition-colors">
+-<span class="material-symbols-outlined">close</span>
+-</button>
+-</div>
+-<!-- Modal Body -->
+-<form class="p-8 space-y-6">
+-<!-- Owner Name Field -->
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">
+-                        Pangalan ng May-ari <span class="italic">/ Owner Name</span>
+-</label>
+-<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-all outline-none" placeholder="Juan Dela Cruz" type="text">
+-</div>
+-<!-- Map Interaction Section -->
+-<div class="space-y-3">
+-<div class="flex items-center gap-2 text-primary">
+-<span class="material-symbols-outlined text-[20px]">location_on</span>
+-<p class="text-label-md font-label-md">
+-                            I-click ang mapa para itakda ang lokasyon <span class="text-on-surface-variant">/ Click the map to set location</span>
+-</p>
+-</div>
+-<!-- Interactive Map Placeholder -->
+-<div class="relative group cursor-crosshair">
+-<div class="w-full h-64 rounded-xl overflow-hidden border border-outline-variant relative bg-surface-container">
+-<div class="absolute inset-0 map-grid-pattern opacity-20"></div>
+-<!-- Static Map Placeholder Image -->
+-<div class="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105" data-alt="A detailed aerial satellite view of a lush green agricultural landscape in the Philippines, showing vibrant rice paddies and geometric field plots separated by narrow dirt paths. The lighting is bright mid-day sun, emphasizing the rich emerald and lime green textures of the crops. The style is professional, clean, and modern, resembling a high-quality GIS mapping interface for agricultural monitoring." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDn_JW0vAneVVBnRwpW3Z-pdGI_ijSNNri49AULLI8aAfT46jJbcSWNCX_GnWMr9i-OvZlCx7ZKNP1PKXDkIj5lY1J3bAt0p0naT6Kjui40JdIEvtqt8kbSBQVnx_sd1HMF5_zTTTzBxY7z8Pkt5FN5nllQbubSlQzR50p9OsFWGlJXzTsvk1ok_fPWvUpS3Y_BvAcQgxY6ZorSujm0B87DB-PRjoW7Z0pBdYG8RcIG41QmTidwMi9wYj5P0L5Pcb4h7dozW4tZUeU')">
+-</div>
+-<!-- Map Overlay HUD -->
+-<div class="absolute top-4 right-4 flex flex-col gap-2">
+-<button class="w-10 h-10 bg-white rounded-lg shadow-md flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white transition-all" type="button">
+-<span class="material-symbols-outlined">add</span>
+-</button>
+-<button class="w-10 h-10 bg-white rounded-lg shadow-md flex items-center justify-center text-on-surface-variant hover:bg-primary hover:text-white transition-all" type="button">
+-<span class="material-symbols-outlined">remove</span>
+-</button>
+-</div>
+-<!-- Pin Overlay (Center) -->
+-<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+-<span class="material-symbols-outlined text-error text-4xl" style="font-variation-settings: 'FILL' 1;">location_on</span>
+-<div class="w-4 h-4 bg-error/20 rounded-full animate-ping absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+-</div>
+-</div>
+-<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-sm text-[11px] font-medium text-on-surface-variant border border-outline-variant">
+-                            Lat: 14.5995, Long: 120.9842
+-                        </div>
+-</div>
+-</div>
+-<!-- Plot Details (Optional Grid) -->
+-<div class="grid gap-gutter">
+-<div class="space-y-2">
+-<label class="block text-label-sm font-label-sm text-on-surface-variant">Laki (Ektarya) / Size (Hectares)</label>
+-<input class="w-full px-4 py-2 rounded-lg border border-outline bg-surface-container-low text-on-surface focus:ring-primary focus:border-primary transition-all outline-none" placeholder="1.5" step="0.1" type="number">
+-</div>
+-
+-</div>
+-</form>
+-<!-- Modal Footer -->
+-<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-4">
+-<button class="px-6 py-2.5 rounded-lg border border-outline text-on-surface-variant font-semibold hover:bg-surface-container-high active:scale-95 transition-all" type="button">
+-                    Kanselahin <span class="font-normal opacity-70">/ Cancel</span>
+-</button>
+-<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold shadow-md hover:bg-primary-container hover:shadow-lg active:scale-95 transition-all flex items-center gap-2" type="button">
+-<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+-                    I-kumpirma <span class="font-normal opacity-80">/ Confirm</span>
+-</button>
+-</div>
+-</div>
+-</div>
+-<!-- Micro-interaction Script -->
+-<script>
+-        document.addEventListener('DOMContentLoaded', () => {
+-            // Modal simple close logic simulation
+-            const closeBtn = document.querySelector('.material-symbols-outlined[data-icon="close"]');
+-            if (closeBtn) {
+-                closeBtn.parentElement.addEventListener('click', () => {
+-                    alert('Action cancelled / Nakansela ang aksyon.');
+-                });
+-            }
+-
+-            // Button active state scale
+-            const buttons = document.querySelectorAll('button');
+-            buttons.forEach(btn => {
+-                btn.addEventListener('mousedown', () => btn.classList.add('scale-95'));
+-                btn.addEventListener('mouseup', () => btn.classList.remove('scale-95'));
+-                btn.addEventListener('mouseleave', () => btn.classList.remove('scale-95'));
+-            });
+-        });
+-    </script>
+-
+-
+-</body></html>
+\ No newline at end of file
+diff --git a/frontend/add_reading.html b/frontend/add_reading.html
+deleted file mode 100644
+index 283f511..0000000
+--- a/frontend/add_reading.html
++++ /dev/null
+@@ -1,319 +0,0 @@
+-<!DOCTYPE html>
+-
+-<html class="light" lang="en"><head>
+-<meta charset="utf-8"/>
+-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+-<title>Magdagdag ng Pagbasa | Agri-Admin</title>
+-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+-<script id="tailwind-config">
+-        tailwind.config = {
+-          darkMode: "class",
+-          theme: {
+-            extend: {
+-              "colors": {
+-                      "on-primary-fixed": "#002204",
+-                      "on-tertiary": "#ffffff",
+-                      "tertiary": "#923357",
+-                      "primary-fixed-dim": "#88d982",
+-                      "on-primary-container": "#cbffc2",
+-                      "on-secondary-container": "#735a00",
+-                      "secondary": "#755b00",
+-                      "surface-bright": "#f7fbf0",
+-                      "error-container": "#ffdad6",
+-                      "on-tertiary-fixed-variant": "#7f2448",
+-                      "secondary-container": "#fed255",
+-                      "on-background": "#181d17",
+-                      "on-tertiary-fixed": "#3f001c",
+-                      "tertiary-fixed-dim": "#ffb1c7",
+-                      "on-surface": "#181d17",
+-                      "primary-fixed": "#a3f69c",
+-                      "on-surface-variant": "#40493d",
+-                      "tertiary-fixed": "#ffd9e2",
+-                      "on-error-container": "#93000a",
+-                      "surface-tint": "#1b6d24",
+-                      "surface-variant": "#e0e4da",
+-                      "surface-container": "#ebefe5",
+-                      "inverse-primary": "#88d982",
+-                      "surface-container-highest": "#e0e4da",
+-                      "inverse-on-surface": "#eef2e8",
+-                      "surface-container-low": "#f1f5eb",
+-                      "outline-variant": "#bfcaba",
+-                      "surface-container-lowest": "#ffffff",
+-                      "on-secondary-fixed-variant": "#584400",
+-                      "primary-container": "#2e7d32",
+-                      "error": "#ba1a1a",
+-                      "secondary-fixed-dim": "#ecc246",
+-                      "on-secondary": "#ffffff",
+-                      "surface": "#f7fbf0",
+-                      "on-secondary-fixed": "#241a00",
+-                      "on-primary-fixed-variant": "#005312",
+-                      "inverse-surface": "#2d322b",
+-                      "surface-dim": "#d7dbd2",
+-                      "on-error": "#ffffff",
+-                      "surface-container-high": "#e5eadf",
+-                      "primary": "#0d631b",
+-                      "on-tertiary-container": "#ffedf0",
+-                      "outline": "#707a6c",
+-                      "tertiary-container": "#b14b6f",
+-                      "on-primary": "#ffffff",
+-                      "background": "#f7fbf0",
+-                      "secondary-fixed": "#ffe08e"
+-              },
+-              "borderRadius": {
+-                      "DEFAULT": "0.25rem",
+-                      "lg": "0.5rem",
+-                      "xl": "0.75rem",
+-                      "full": "9999px"
+-              },
+-              "spacing": {
+-                      "card-gap": "24px",
+-                      "container-padding": "24px",
+-                      "base": "8px",
+-                      "gutter": "16px",
+-                      "section-margin": "48px"
+-              },
+-              "fontFamily": {
+-                      "headline-lg": ["Plus Jakarta Sans"],
+-                      "body-md": ["Plus Jakarta Sans"],
+-                      "headline-sm": ["Plus Jakarta Sans"],
+-                      "headline-md": ["Plus Jakarta Sans"],
+-                      "label-md": ["Plus Jakarta Sans"],
+-                      "label-sm": ["Plus Jakarta Sans"],
+-                      "body-lg": ["Plus Jakarta Sans"],
+-                      "headline-lg-mobile": ["Plus Jakarta Sans"]
+-              },
+-              "fontSize": {
+-                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+-                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+-                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+-                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+-                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+-                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+-                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+-                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}]
+-              }
+-            },
+-          },
+-        }
+-    </script>
+-<style>
+-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+-        .material-symbols-outlined {
+-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+-        }
+-        .modal-blur {
+-            backdrop-filter: blur(8px);
+-            background-color: rgba(24, 29, 23, 0.6);
+-        }
+-    </style>
+-</head>
+-<body class="bg-background text-on-background min-h-screen">
+-<!-- Dashboard Background (Dimmed) -->
+-<div class="fixed inset-0 z-0 flex overflow-hidden">
+-<!-- Predicted SideNavBar -->
+-<aside class="fixed left-0 top-0 h-screen flex flex-col p-base space-y-2 border-r border-outline-variant bg-surface-container dark:bg-surface-container-lowest w-64 md:w-72 hidden md:flex">
+-<div class="px-4 py-6">
+-<h1 class="font-headline-md text-headline-md font-bold text-on-primary-fixed-variant">Agri-Admin</h1>
+-<p class="text-label-sm text-on-surface-variant opacity-70">PH Cooperatives Portal</p>
+-</div>
+-<nav class="flex-1 space-y-1">
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg cursor-pointer">
+-<span class="material-symbols-outlined">map</span>
+-<span class="font-label-md text-label-md">Mapa ng Bukid / Farm Map</span>
+-</div>
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg cursor-pointer">
+-<span class="material-symbols-outlined">grid_view</span>
+-<span class="font-label-md text-label-md">Lahat ng Bukid / All Plots</span>
+-</div>
+-<div class="flex items-center gap-base px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-semibold">
+-<span class="material-symbols-outlined">analytics</span>
+-<span class="font-label-md text-label-md">Mga Tagasubaybay / Readings Log</span>
+-</div>
+-<div class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-lg cursor-pointer">
+-<span class="material-symbols-outlined">settings</span>
+-<span class="font-label-md text-label-md">Mga Setting / Settings</span>
+-</div>
+-</nav>
+-</aside>
+-<!-- Main Content Area (Background) -->
+-<main class="flex-1 ml-0 md:ml-72 flex flex-col min-h-screen">
+-<!-- Predicted TopNavBar -->
+-<header class="sticky top-0 z-50 flex justify-between items-center w-full px-container-padding py-base bg-surface border-b border-outline-variant">
+-<div class="flex items-center gap-4">
+-<span class="md:hidden material-symbols-outlined text-primary">menu</span>
+-<h2 class="font-headline-sm text-headline-sm-mobile md:text-headline-sm font-bold text-primary">Dashboard ng Rekomendasyon</h2>
+-</div>
+-<div class="flex items-center gap-gutter">
+-<span class="text-label-md font-medium text-on-surface-variant">EN/PH</span>
+-<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">notifications</span>
+-<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant">
+-<img class="w-full h-full object-cover" data-alt="A professional headshot of a Filipino agricultural administrator, wearing a neat polo shirt, smiling warmly against a blurred office background with maps. The lighting is soft and natural, emphasizing a high-trust, institutional professional vibe consistent with government service." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAP9vuHzATunBpiFnlqQDb7D71Ou5cRAgwLMAqCBH0l_FQEqj48t56LQj7D_IH0t9rVQQQNIr8nvd-hdTsznL4F6pAOtYBFBJ8_JxpyKf0K2nk6YSUO0sU-sURImsQsO3HBb4wPhoj41Ev8FRiiih0eT2vfz2c-i7h8z_i4WUI5L34kTpRk5UtZBRbMStGOS2NV4qWZ2QsT_w1ovfRFoTj115zx-tuXC63Jp-Bo16ztHdAUPoLEsGAPZqYtoo4u1rseS0e12v40dFQ"/>
+-</div>
+-</div>
+-</header>
+-<!-- Background Content Grid (Bento Style) -->
+-<div class="p-container-padding space-y-card-gap">
+-<div class="grid grid-cols-1 md:grid-cols-3 gap-card-gap">
+-<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/30 h-40"></div>
+-<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/30 h-40"></div>
+-<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/30 h-40"></div>
+-</div>
+-<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/30 h-96"></div>
+-</div>
+-</main>
+-</div>
+-<!-- Modal Overlay -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-blur overflow-y-auto" id="readingModal">
+-<!-- Modal Container -->
+-<div class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in duration-300">
+-<!-- Modal Header -->
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center bg-white">
+-<div>
+-<h3 class="font-headline-sm text-headline-sm text-on-surface">Magdagdag ng Pagbasa / Add Reading</h3>
+-<p class="text-label-md text-on-surface-variant mt-1">Ilagay ang mga detalye ng pananim para sa rekomendasyon.</p>
+-</div>
+-<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors active:scale-95" onclick="this.closest('#readingModal').classList.add('hidden')">
+-<span class="material-symbols-outlined text-on-surface-variant">close</span>
+-</button>
+-</div>
+-<!-- Modal Content (Form) -->
+-<div class="p-8">
+-<form class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5" id="readingForm">
+-<!-- N Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Nitrogen (N) <span class="text-label-sm opacity-60">mg/kg</span></label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="0" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 font-bold">N</span>
+-</div>
+-</div>
+-<!-- P Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Phosphorus (P) <span class="text-label-sm opacity-60">mg/kg</span></label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="0" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 font-bold">P</span>
+-</div>
+-</div>
+-<!-- K Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Potassium (K) <span class="text-label-sm opacity-60">mg/kg</span></label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="0" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 font-bold">K</span>
+-</div>
+-</div>
+-<!-- pH Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">pH Level / Antas ng pH</label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="7.0" step="0.1" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 text-primary/40 font-bold">pH</span>
+-</div>
+-</div>
+-<!-- Temperature Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Temperatura / Temperature (°C)</label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="25.0" step="0.1" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/40">thermostat</span>
+-</div>
+-</div>
+-<!-- Humidity Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Humidity (%)</label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="80" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/40">humidity_mid</span>
+-</div>
+-</div>
+-<!-- Rainfall Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Ulan / Rainfall (mm)</label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="200" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/40">rainy</span>
+-</div>
+-</div>
+-<!-- Soil Moisture Input -->
+-<div class="space-y-1.5">
+-<label class="block font-label-md text-on-surface-variant">Halumigmig ng Lupa / Soil Moisture (%)</label>
+-<div class="relative">
+-<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all font-body-md" placeholder="45" type="number"/>
+-<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary/40">water_drop</span>
+-</div>
+-</div>
+-</form>
+-</div>
+-<!-- Modal Footer -->
+-<div class="px-8 py-6 border-t border-outline-variant bg-surface-container-low flex flex-col sm:flex-row gap-4 items-center justify-between">
+-<button class="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 border-2 border-secondary text-secondary font-semibold rounded-lg hover:bg-secondary-fixed/20 transition-all active:scale-95 duration-200" onclick="simulateValues()" type="button">
+-<span class="material-symbols-outlined">casino</span>
+-                    Simulate Random Reading
+-                </button>
+-<div class="flex gap-3 w-full sm:w-auto">
+-<button class="flex-1 sm:flex-none px-6 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high rounded-lg transition-colors" onclick="this.closest('#readingModal').classList.add('hidden')" type="button">
+-                        Cancel
+-                    </button>
+-<button class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg hover:brightness-110 shadow-lg shadow-primary-container/20 transition-all active:scale-95 duration-200" form="readingForm" type="submit">
+-<span class="material-symbols-outlined">save</span>
+-                        I-save / Save
+-                    </button>
+-</div>
+-</div>
+-</div>
+-</div>
+-<script>
+-        function simulateValues() {
+-            const inputs = document.querySelectorAll('#readingForm input');
+-            const ranges = [
+-                {min: 0, max: 140}, // N
+-                {min: 5, max: 145}, // P
+-                {min: 5, max: 205}, // K
+-                {min: 3.5, max: 9.9, step: 0.1}, // pH
+-                {min: 8.8, max: 43.6, step: 0.1}, // Temp
+-                {min: 14, max: 99}, // Humidity
+-                {min: 20, max: 298}, // Rainfall
+-                {min: 10, max: 100}  // Soil Moisture
+-            ];
+-
+-            inputs.forEach((input, index) => {
+-                const range = ranges[index];
+-                let val;
+-                if (range.step) {
+-                    val = (Math.random() * (range.max - range.min) + range.min).toFixed(1);
+-                } else {
+-                    val = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+-                }
+-                
+-                input.classList.add('bg-secondary-fixed/10');
+-                input.value = val;
+-                
+-                setTimeout(() => {
+-                    input.classList.remove('bg-secondary-fixed/10');
+-                }, 800);
+-            });
+-        }
+-
+-        // Prevent form submission for demo
+-        document.getElementById('readingForm').addEventListener('submit', (e) => {
+-            e.preventDefault();
+-            const btn = e.submitter;
+-            const originalText = btn.innerHTML;
+-            btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Inisesave...';
+-            btn.disabled = true;
+-            
+-            setTimeout(() => {
+-                btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> Nakasave na!';
+-                setTimeout(() => {
+-                    document.getElementById('readingModal').classList.add('hidden');
+-                    btn.innerHTML = originalText;
+-                    btn.disabled = false;
+-                }, 1000);
+-            }, 1500);
+-        });
+-    </script>
+-</body></html>
+\ No newline at end of file
+diff --git a/frontend/admin.html b/frontend/admin.html
+new file mode 100644
+index 0000000..181e372
+--- /dev/null
++++ b/frontend/admin.html
+@@ -0,0 +1,675 @@
++<!DOCTYPE html>
++<html lang="en">
++<head>
++<meta charset="utf-8"/>
++<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
++<title>Agri-Admin | Admin Panel</title>
++<script>if (!sessionStorage.getItem("adminAuth")) window.location.replace("/");</script>
++<script src="config.js"></script>
++<script src="https://cdn.tailwindcss.com"></script>
++<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
++<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
++<style>
++  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f7fbf0; color: #181d17; }
++  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
++  .hidden { display: none !important; }
++  .nav-btn.active { background-color: #f0fdf4; color: #0d631b; font-weight: 700; }
++  .nav-btn { transition: background 0.15s, color 0.15s; }
++</style>
++</head>
++<body class="flex h-screen overflow-hidden bg-[#f7fbf0]">
++
++<!-- Left Sidebar -->
++<aside class="w-60 shrink-0 flex flex-col h-screen bg-white border-r border-gray-100 shadow-sm z-20">
++
++  <!-- Logo -->
++  <div class="px-5 py-6 border-b border-gray-100">
++    <div class="flex items-center gap-3">
++      <div class="w-10 h-10 rounded-xl bg-[#0d631b] flex items-center justify-center shadow-sm">
++        <span class="material-symbols-outlined text-white text-2xl" style="font-variation-settings:'FILL' 1;">potted_plant</span>
++      </div>
++      <span class="font-bold text-lg text-[#0d631b] leading-tight">Agri-Admin</span>
++    </div>
++  </div>
++
++  <!-- Nav -->
++  <nav class="flex-1 p-3 space-y-1">
++    <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-[#f0fdf4] hover:text-[#0d631b]"
++      data-tab="tabDashboard">
++      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">dashboard</span>
++      <span class="text-sm font-medium">Dashboard</span>
++    </button>
++    <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-[#f0fdf4] hover:text-[#0d631b]"
++      data-tab="tabFarmers">
++      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">group</span>
++      <span class="text-sm font-medium">Mga Magsasaka</span>
++    </button>
++    <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-[#f0fdf4] hover:text-[#0d631b]"
++      data-tab="tabFarms">
++      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">landscape</span>
++      <span class="text-sm font-medium">Mga Bukid</span>
++    </button>
++  </nav>
++
++  <!-- Logout -->
++  <div class="p-4 border-t border-gray-100">
++    <button id="logoutBtn"
++      class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-red-600 hover:bg-red-50 transition">
++      <span class="material-symbols-outlined">logout</span>
++      <span class="text-sm font-medium">Logout</span>
++    </button>
++  </div>
++</aside>
++
++<!-- Main content -->
++<main class="flex-1 overflow-y-auto">
++
++  <!-- Tab: Dashboard -->
++  <div id="tabDashboard" class="p-8 max-w-6xl mx-auto space-y-8">
++    <h2 class="text-2xl font-bold text-gray-800">Dashboard</h2>
++
++    <!-- Stats row -->
++    <div class="grid grid-cols-3 gap-5" id="statsRow">
++      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
++        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Mga Magsasaka</p>
++        <p class="text-4xl font-bold text-[#0d631b]" id="statFarmers">—</p>
++      </div>
++      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
++        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Mga Bukid</p>
++        <p class="text-4xl font-bold text-[#0d631b]" id="statFarms">—</p>
++      </div>
++      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
++        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Sensor na May Reading</p>
++        <p class="text-4xl font-bold text-[#0d631b]" id="statSensors">—</p>
++      </div>
++    </div>
++
++    <!-- Map -->
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
++      <h3 class="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Mapa ng mga Bukid</h3>
++      <div id="map" style="width:100%;height:420px;border-radius:12px;"></div>
++    </div>
++
++    <!-- Farm overview table -->
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
++      <div class="px-6 py-4 border-b border-gray-100">
++        <h3 class="font-bold text-gray-700">Farm Overview</h3>
++      </div>
++      <div class="overflow-x-auto">
++        <table class="w-full text-sm text-left">
++          <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
++            <tr>
++              <th class="px-6 py-3 font-semibold">Farm Name</th>
++              <th class="px-6 py-3 font-semibold">Magsasaka</th>
++              <th class="px-6 py-3 font-semibold">Sensors</th>
++              <th class="px-6 py-3 font-semibold">Rekomendasyon</th>
++            </tr>
++          </thead>
++          <tbody id="dashFarmBody" class="divide-y divide-gray-50">
++            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Naglo-load...</td></tr>
++          </tbody>
++        </table>
++      </div>
++    </div>
++  </div>
++
++  <!-- Tab: Mga Magsasaka -->
++  <div id="tabFarmers" class="hidden p-8 max-w-6xl mx-auto space-y-6">
++    <div class="flex items-center justify-between">
++      <h2 class="text-2xl font-bold text-gray-800">Mga Magsasaka</h2>
++      <button id="addFarmerBtn"
++        class="flex items-center gap-2 bg-[#0d631b] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
++        <span class="material-symbols-outlined text-lg">add</span>
++        Magdagdag
++      </button>
++    </div>
++
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
++      <div class="overflow-x-auto">
++        <table class="w-full text-sm text-left">
++          <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
++            <tr>
++              <th class="px-6 py-3 font-semibold">Pangalan</th>
++              <th class="px-6 py-3 font-semibold">Mga Bukid</th>
++              <th class="px-6 py-3 font-semibold">Petsa ng Paglikha</th>
++              <th class="px-6 py-3 font-semibold">Aksyon</th>
++            </tr>
++          </thead>
++          <tbody id="farmersBody" class="divide-y divide-gray-50">
++            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Naglo-load...</td></tr>
++          </tbody>
++        </table>
++      </div>
++    </div>
++  </div>
++
++  <!-- Tab: Mga Bukid -->
++  <div id="tabFarms" class="hidden p-8 max-w-6xl mx-auto space-y-6">
++    <div class="flex items-center justify-between">
++      <h2 class="text-2xl font-bold text-gray-800">Mga Bukid</h2>
++      <button id="addFarmBtn"
++        class="flex items-center gap-2 bg-[#0d631b] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
++        <span class="material-symbols-outlined text-lg">add</span>
++        Magdagdag
++      </button>
++    </div>
++
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
++      <div class="overflow-x-auto">
++        <table class="w-full text-sm text-left">
++          <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
++            <tr>
++              <th class="px-6 py-3 font-semibold">Bukid</th>
++              <th class="px-6 py-3 font-semibold">Magsasaka</th>
++              <th class="px-6 py-3 font-semibold">Mga Sensor</th>
++              <th class="px-6 py-3 font-semibold">Hectares</th>
++              <th class="px-6 py-3 font-semibold">Aksyon</th>
++            </tr>
++          </thead>
++          <tbody id="farmsBody" class="divide-y divide-gray-50">
++            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">Naglo-load...</td></tr>
++          </tbody>
++        </table>
++      </div>
++    </div>
++  </div>
++
++</main>
++
++<!-- ==================== MODALS ==================== -->
++
++<!-- Farmer add/edit modal -->
++<div id="farmerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
++  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
++    <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
++      <h3 id="farmerModalTitle" class="font-bold text-gray-800 text-lg">Magdagdag ng Magsasaka</h3>
++      <button id="farmerModalClose" class="p-1.5 hover:bg-gray-100 rounded-full transition">
++        <span class="material-symbols-outlined text-gray-400">close</span>
++      </button>
++    </div>
++    <div class="p-6 space-y-4">
++      <div>
++        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Pangalan</label>
++        <input id="farmerNameInput" type="text" placeholder="Juan Dela Cruz"
++          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition"/>
++        <p id="farmerModalError" class="hidden text-xs text-red-500 mt-1.5"></p>
++      </div>
++    </div>
++    <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
++      <button id="farmerModalCancel"
++        class="px-5 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
++        I-cancel
++      </button>
++      <button id="farmerModalSave"
++        class="px-5 py-2 bg-[#0d631b] text-white rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
++        I-save
++      </button>
++    </div>
++  </div>
++</div>
++
++<!-- Farm assign modal -->
++<div id="farmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
++  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
++    <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
++      <h3 class="font-bold text-gray-800 text-lg">I-assign ang Magsasaka</h3>
++      <button id="farmModalClose" class="p-1.5 hover:bg-gray-100 rounded-full transition">
++        <span class="material-symbols-outlined text-gray-400">close</span>
++      </button>
++    </div>
++    <div class="p-6 space-y-4">
++      <div class="bg-[#f0fdf4] rounded-lg px-4 py-3">
++        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Bukid</p>
++        <p id="farmModalName" class="font-bold text-[#0d631b]">—</p>
++      </div>
++      <div>
++        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Magsasaka</label>
++        <select id="farmModalFarmerSelect"
++          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition bg-white">
++          <option value="">— Walang magsasaka —</option>
++        </select>
++        <p id="farmModalError" class="hidden text-xs text-red-500 mt-1.5"></p>
++      </div>
++    </div>
++    <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
++      <button id="farmModalCancel"
++        class="px-5 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
++        I-cancel
++      </button>
++      <button id="farmModalSave"
++        class="px-5 py-2 bg-[#0d631b] text-white rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
++        I-save
++      </button>
++    </div>
++  </div>
++</div>
++
++<!-- Delete confirm modal -->
++<div id="deleteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
++  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
++    <div class="px-6 py-5 border-b border-gray-100">
++      <h3 class="font-bold text-gray-800 text-lg">Kumpirmahin ang Pagtanggal</h3>
++    </div>
++    <div class="p-6">
++      <p id="deleteModalMsg" class="text-sm text-gray-600"></p>
++    </div>
++    <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
++      <button id="deleteModalCancel"
++        class="px-5 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
++        I-cancel
++      </button>
++      <button id="deleteModalConfirm"
++        class="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition active:scale-95">
++        Burahin
++      </button>
++    </div>
++  </div>
++</div>
++
++<!-- ==================== SCRIPTS ==================== -->
++<script>
++  const API = "";
++
++  let farmers = [], farms = [], map, farmPolygons = [];
++  let editingFarmerId = null, assigningFarmId = null, deleteCb = null;
++
++  // ─── Tab switching ───────────────────────────────────────────────────────────
++  function setTab(id) {
++    ["tabDashboard","tabFarmers","tabFarms"].forEach(t => {
++      document.getElementById(t).classList.toggle("hidden", t !== id);
++    });
++    document.querySelectorAll(".nav-btn").forEach(b => {
++      b.classList.toggle("active", b.dataset.tab === id);
++    });
++    if (id === "tabDashboard") loadDashboard();
++    if (id === "tabFarmers")   loadFarmers();
++    if (id === "tabFarms")     loadFarmsTab();
++  }
++
++  document.querySelectorAll(".nav-btn").forEach(b =>
++    b.addEventListener("click", () => setTab(b.dataset.tab))
++  );
++
++  document.getElementById("logoutBtn").addEventListener("click", () => {
++    sessionStorage.removeItem("adminAuth");
++    window.location.href = "/";
++  });
++
++  // ─── Google Maps init (called by Maps API callback) ─────────────────────────
++  window.initMap = function () {
++    map = new google.maps.Map(document.getElementById("map"), {
++      center: { lat: 12.8797, lng: 121.7740 },
++      zoom: 6,
++      mapTypeId: "satellite",
++      streetViewControl: false,
++      mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT },
++    });
++    loadDashboard();
++  };
++
++  function renderMap(fms) {
++    farmPolygons.forEach(p => p.setMap(null));
++    farmPolygons = fms
++      .filter(f => Array.isArray(f.polygon) && f.polygon.length >= 3)
++      .map(f => {
++        const poly = new google.maps.Polygon({
++          paths: f.polygon.map(([lat, lng]) => ({ lat, lng })),
++          map,
++          fillColor: "#22c55e",
++          fillOpacity: 0.25,
++          strokeColor: "#16a34a",
++          strokeWeight: 2,
++        });
++        return poly;
++      });
++
++    if (fms.length) {
++      const bounds = new google.maps.LatLngBounds();
++      fms.forEach(f => {
++        if (Array.isArray(f.polygon)) {
++          f.polygon.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
++        }
++      });
++      if (!bounds.isEmpty()) map.fitBounds(bounds);
++    }
++  }
++
++  // ─── Dashboard ───────────────────────────────────────────────────────────────
++  async function loadDashboard() {
++    try {
++      const [fRes, fmRes] = await Promise.all([
++        fetch(`${API}/farmers`),
++        fetch(`${API}/farms`),
++      ]);
++      farmers = await fRes.json();
++      farms   = await fmRes.json();
++    } catch {
++      return;
++    }
++
++    document.getElementById("statFarmers").textContent = farmers.length;
++    document.getElementById("statFarms").textContent   = farms.length;
++
++    // Count farms with at least one reading
++    let sensorsWithReading = 0;
++    const readingChecks = farms.map(async f => {
++      try {
++        const r = await fetch(`${API}/readings/${encodeURIComponent(f.farm_id)}`);
++        if (!r.ok) return;
++        const readings = await r.json();
++        if (Array.isArray(readings) && readings.length > 0) sensorsWithReading++;
++      } catch {}
++    });
++    await Promise.all(readingChecks);
++    document.getElementById("statSensors").textContent = sensorsWithReading;
++
++    // Map polygons
++    if (map) renderMap(farms);
++
++    // Overview table
++    const farmerMap = Object.fromEntries(farmers.map(f => [f.id, f.name]));
++    const tbody = document.getElementById("dashFarmBody");
++    if (!farms.length) {
++      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Walang bukid pa.</td></tr>`;
++      return;
++    }
++
++    const rows = await Promise.all(farms.map(async f => {
++      let sensorCount = 0, rec = "—";
++      try {
++        const r = await fetch(`${API}/readings/${encodeURIComponent(f.farm_id)}`);
++        if (r.ok) {
++          const readings = await r.json();
++          sensorCount = Array.isArray(readings) ? readings.length : 0;
++        }
++      } catch {}
++      try {
++        const r = await fetch(`${API}/farms/${encodeURIComponent(f.farm_id)}/predict`);
++        if (r.ok) {
++          const d = await r.json();
++          if (d.crop) rec = d.crop;
++        }
++      } catch {}
++      const farmerName = farmerMap[f.farmer_id] || "—";
++      return `<tr class="hover:bg-gray-50 transition">
++        <td class="px-6 py-4 font-medium text-gray-800">${esc(f.farm_name || f.farm_id)}</td>
++        <td class="px-6 py-4 text-gray-600">${esc(farmerName)}</td>
++        <td class="px-6 py-4 text-gray-600">${sensorCount}</td>
++        <td class="px-6 py-4">
++          ${rec !== "—"
++            ? `<span class="inline-flex items-center gap-1 bg-[#f0fdf4] text-[#0d631b] text-xs font-bold px-2.5 py-1 rounded-full">${esc(rec)}</span>`
++            : `<span class="text-gray-400 text-xs">—</span>`}
++        </td>
++      </tr>`;
++    }));
++
++    tbody.innerHTML = rows.join("");
++  }
++
++  // ─── Farmers tab ─────────────────────────────────────────────────────────────
++  async function loadFarmers() {
++    try {
++      const [fRes, fmRes] = await Promise.all([
++        fetch(`${API}/farmers`),
++        fetch(`${API}/farms`),
++      ]);
++      farmers = await fRes.json();
++      farms   = await fmRes.json();
++    } catch {
++      document.getElementById("farmersBody").innerHTML =
++        `<tr><td colspan="4" class="px-6 py-8 text-center text-red-400">Hindi ma-load ang data.</td></tr>`;
++      return;
++    }
++
++    const tbody = document.getElementById("farmersBody");
++    if (!farmers.length) {
++      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Walang magsasaka pa.</td></tr>`;
++      return;
++    }
++
++    tbody.innerHTML = "";
++    farmers.forEach(f => {
++      const farmCount = farms.filter(fm => fm.farmer_id === f.id || fm.farmer_id === String(f.id)).length;
++      const created = f.created_at
++        ? new Date(f.created_at).toLocaleDateString("fil-PH", { year:"numeric", month:"short", day:"numeric" })
++        : "—";
++      const tr = document.createElement("tr");
++      tr.className = "hover:bg-gray-50 transition";
++      tr.innerHTML = `
++        <td class="px-6 py-4 font-medium text-gray-800">${esc(f.name)}</td>
++        <td class="px-6 py-4 text-gray-600">${farmCount}</td>
++        <td class="px-6 py-4 text-gray-500">${created}</td>
++        <td class="px-6 py-4">
++          <div class="flex items-center gap-2">
++            <button class="edit-farmer-btn text-xs font-bold text-[#0d631b] border border-[#0d631b] px-3 py-1 rounded-lg hover:bg-[#f0fdf4] transition">I-edit</button>
++            <button class="del-farmer-btn text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition">Burahin</button>
++          </div>
++        </td>`;
++      tbody.appendChild(tr);
++      const editBtn = tr.querySelector(".edit-farmer-btn");
++      const delBtn  = tr.querySelector(".del-farmer-btn");
++      if (editBtn) editBtn.addEventListener("click", () => openFarmerModal(f.id, f.name));
++      if (delBtn)  delBtn.addEventListener("click",  () => confirmDelete(
++        `Burahin si "${f.name}"? Ang lahat ng kaugnayan sa bukid ay aalisin.`,
++        () => deleteFarmer(f.id)
++      ));
++    });
++  }
++
++  function openFarmerModal(id, name) {
++    editingFarmerId = id || null;
++    document.getElementById("farmerModalTitle").textContent =
++      id ? "I-edit ang Magsasaka" : "Magdagdag ng Magsasaka";
++    document.getElementById("farmerNameInput").value = name || "";
++    document.getElementById("farmerModalError").classList.add("hidden");
++    document.getElementById("farmerModalError").textContent = "";
++    document.getElementById("farmerModal").classList.remove("hidden");
++    document.getElementById("farmerNameInput").focus();
++  }
++
++  document.getElementById("addFarmerBtn").addEventListener("click", () => openFarmerModal(null, ""));
++  document.getElementById("farmerModalClose").addEventListener("click",  () => document.getElementById("farmerModal").classList.add("hidden"));
++  document.getElementById("farmerModalCancel").addEventListener("click", () => document.getElementById("farmerModal").classList.add("hidden"));
++
++  document.getElementById("farmerModalSave").addEventListener("click", async () => {
++    const name = document.getElementById("farmerNameInput").value.trim();
++    const errEl = document.getElementById("farmerModalError");
++    errEl.classList.add("hidden");
++
++    if (!name) { errEl.textContent = "Kailangan ang pangalan."; errEl.classList.remove("hidden"); return; }
++
++    try {
++      let res;
++      if (editingFarmerId) {
++        res = await fetch(`${API}/farmers/${editingFarmerId}`, {
++          method: "PUT",
++          headers: { "Content-Type": "application/json" },
++          body: JSON.stringify({ name }),
++        });
++      } else {
++        res = await fetch(`${API}/farmers`, {
++          method: "POST",
++          headers: { "Content-Type": "application/json" },
++          body: JSON.stringify({ name }),
++        });
++      }
++      if (res.status === 409) { errEl.textContent = "Mayroon na itong pangalan."; errEl.classList.remove("hidden"); return; }
++      if (!res.ok) { const d = await res.json().catch(() => ({})); errEl.textContent = d.detail || "May error."; errEl.classList.remove("hidden"); return; }
++      document.getElementById("farmerModal").classList.add("hidden");
++      await loadFarmers();
++    } catch {
++      errEl.textContent = "Hindi ma-konekta sa server."; errEl.classList.remove("hidden");
++    }
++  });
++
++  async function deleteFarmer(id) {
++    try {
++      await fetch(`${API}/farmers/${id}`, { method: "DELETE" });
++      await loadFarmers();
++    } catch {}
++  }
++
++  // ─── Farms tab ───────────────────────────────────────────────────────────────
++  async function loadFarmsTab() {
++    try {
++      const [fRes, fmRes] = await Promise.all([
++        fetch(`${API}/farms`),
++        fetch(`${API}/farmers`),
++      ]);
++      farms   = await fRes.json();
++      farmers = await fmRes.json();
++    } catch {
++      document.getElementById("farmsBody").innerHTML =
++        `<tr><td colspan="5" class="px-6 py-8 text-center text-red-400">Hindi ma-load ang data.</td></tr>`;
++      return;
++    }
++
++    const tbody = document.getElementById("farmsBody");
++    if (!farms.length) {
++      tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">Walang bukid pa.</td></tr>`;
++      return;
++    }
++
++    const farmerMap = Object.fromEntries(farmers.map(f => [String(f.id), f.name]));
++
++    const farmData = await Promise.all(farms.map(async f => {
++      let sensorCount = 0;
++      try {
++        const r = await fetch(`${API}/readings/${encodeURIComponent(f.farm_id)}`);
++        if (r.ok) {
++          const readings = await r.json();
++          sensorCount = Array.isArray(readings) ? readings.length : 0;
++        }
++      } catch {}
++      return { f, sensorCount };
++    }));
++
++    tbody.innerHTML = "";
++    farmData.forEach(({ f, sensorCount }) => {
++      const farmerName = f.farmer_id != null ? (farmerMap[String(f.farmer_id)] || "—") : "—";
++      const hectares   = f.hectares != null ? Number(f.hectares).toFixed(2) : "—";
++      const tr = document.createElement("tr");
++      tr.className = "hover:bg-gray-50 transition";
++      tr.innerHTML = `
++        <td class="px-6 py-4 font-medium text-gray-800">${esc(f.farm_name || f.farm_id)}</td>
++        <td class="px-6 py-4 text-gray-600">${esc(farmerName)}</td>
++        <td class="px-6 py-4 text-gray-600">${sensorCount}</td>
++        <td class="px-6 py-4 text-gray-600">${hectares} ha</td>
++        <td class="px-6 py-4">
++          <div class="flex items-center gap-2">
++            <button class="assign-farm-btn text-xs font-bold text-[#0d631b] border border-[#0d631b] px-3 py-1 rounded-lg hover:bg-[#f0fdf4] transition">I-assign</button>
++            <button class="del-farm-btn text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition">Burahin</button>
++          </div>
++        </td>`;
++      tbody.appendChild(tr);
++      const assignBtn = tr.querySelector(".assign-farm-btn");
++      const delBtn    = tr.querySelector(".del-farm-btn");
++      if (assignBtn) assignBtn.addEventListener("click", () =>
++        openFarmModal(f.farm_id, f.farm_name || f.farm_id, f.farmer_id != null ? String(f.farmer_id) : "")
++      );
++      if (delBtn) delBtn.addEventListener("click", () => confirmDelete(
++        `Burahin ang bukid na "${f.farm_name || f.farm_id}"? Hindi na ito mababawi.`,
++        () => deleteFarm(f.farm_id)
++      ));
++    });
++  }
++
++  function openFarmModal(farmId, farmName, currentFarmerId) {
++    assigningFarmId = farmId;
++    document.getElementById("farmModalName").textContent = farmName;
++    document.getElementById("farmModalError").classList.add("hidden");
++    document.getElementById("farmModalError").textContent = "";
++
++    // Populate farmer dropdown
++    const sel = document.getElementById("farmModalFarmerSelect");
++    sel.innerHTML = `<option value="">— Walang magsasaka —</option>`;
++    farmers.forEach(f => {
++      const opt = document.createElement("option");
++      opt.value = String(f.id);
++      opt.textContent = f.name;
++      if (String(f.id) === String(currentFarmerId)) opt.selected = true;
++      sel.appendChild(opt);
++    });
++
++    document.getElementById("farmModal").classList.remove("hidden");
++  }
++
++  const addFarmBtnEl = document.getElementById("addFarmBtn");
++  addFarmBtnEl.disabled = true;
++  addFarmBtnEl.title = "Hindi available — gamitin ang API o simulation program";
++  addFarmBtnEl.classList.add("opacity-50", "cursor-not-allowed");
++
++  document.getElementById("farmModalClose").addEventListener("click",  () => document.getElementById("farmModal").classList.add("hidden"));
++  document.getElementById("farmModalCancel").addEventListener("click", () => document.getElementById("farmModal").classList.add("hidden"));
++
++  document.getElementById("farmModalSave").addEventListener("click", async () => {
++    const farmerId = document.getElementById("farmModalFarmerSelect").value;
++    const errEl    = document.getElementById("farmModalError");
++    errEl.classList.add("hidden");
++
++    try {
++      const res = await fetch(`${API}/farms/${encodeURIComponent(assigningFarmId)}/farmer`, {
++        method: "PUT",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ farmer_id: farmerId || null }),
++      });
++      if (!res.ok) {
++        const d = await res.json().catch(() => ({}));
++        errEl.textContent = d.detail || "May error.";
++        errEl.classList.remove("hidden");
++        return;
++      }
++      document.getElementById("farmModal").classList.add("hidden");
++      await loadFarmsTab();
++    } catch {
++      errEl.textContent = "Hindi ma-konekta sa server.";
++      errEl.classList.remove("hidden");
++    }
++  });
++
++  async function deleteFarm(farmId) {
++    try {
++      await fetch(`${API}/farms/${encodeURIComponent(farmId)}`, { method: "DELETE" });
++      await loadFarmsTab();
++    } catch {}
++  }
++
++  // ─── Delete confirm modal ────────────────────────────────────────────────────
++  function confirmDelete(msg, cb) {
++    deleteCb = cb;
++    document.getElementById("deleteModalMsg").textContent = msg;
++    document.getElementById("deleteModal").classList.remove("hidden");
++  }
++
++  document.getElementById("deleteModalCancel").addEventListener("click", () => {
++    deleteCb = null;
++    document.getElementById("deleteModal").classList.add("hidden");
++  });
++
++  document.getElementById("deleteModalConfirm").addEventListener("click", () => {
++    document.getElementById("deleteModal").classList.add("hidden");
++    if (deleteCb) { deleteCb(); deleteCb = null; }
++  });
++
++  // ─── Utility ─────────────────────────────────────────────────────────────────
++  function esc(s) {
++    if (s == null) return "";
++    return String(s)
++      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
++      .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
++  }
++
++  // ─── Boot: show Dashboard tab ────────────────────────────────────────────────
++  setTab("tabDashboard");
++
++  // Dynamically inject Maps script so the API key comes from config.js
++  (function () {
++    const s = document.createElement("script");
++    s.async = true;
++    s.defer = true;
++    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
++    document.head.appendChild(s);
++  })();
++</script>
++</body>
++</html>
+diff --git a/frontend/dashboard.html b/frontend/dashboard.html
+deleted file mode 100644
+index 3a358a6..0000000
+--- a/frontend/dashboard.html
++++ /dev/null
+@@ -1,979 +0,0 @@
+-<!DOCTYPE html>
+-<html class="light" lang="en"><head>
+-<meta charset="utf-8"/>
+-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+-<title>Agri-Admin | Crop Recommendation Dashboard</title>
+-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+-<script src="config.js"></script>
+-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+-<script id="tailwind-config">
+-      tailwind.config = {
+-        darkMode: "class",
+-        theme: {
+-          extend: {
+-            "colors": {
+-                    "on-primary-fixed": "#002204", "on-tertiary": "#ffffff", "tertiary": "#923357",
+-                    "primary-fixed-dim": "#88d982", "on-primary-container": "#cbffc2", "on-secondary-container": "#735a00",
+-                    "secondary": "#755b00", "surface-bright": "#f7fbf0", "error-container": "#ffdad6",
+-                    "on-tertiary-fixed-variant": "#7f2448", "secondary-container": "#fed255", "on-background": "#181d17",
+-                    "on-tertiary-fixed": "#3f001c", "tertiary-fixed-dim": "#ffb1c7", "on-surface": "#181d17",
+-                    "primary-fixed": "#a3f69c", "on-surface-variant": "#40493d", "tertiary-fixed": "#ffd9e2",
+-                    "on-error-container": "#93000a", "surface-tint": "#1b6d24", "surface-variant": "#e0e4da",
+-                    "surface-container": "#ebefe5", "inverse-primary": "#88d982", "surface-container-highest": "#e0e4da",
+-                    "inverse-on-surface": "#eef2e8", "surface-container-low": "#f1f5eb", "outline-variant": "#bfcaba",
+-                    "surface-container-lowest": "#ffffff", "on-secondary-fixed-variant": "#584400", "primary-container": "#2e7d32",
+-                    "error": "#ba1a1a", "secondary-fixed-dim": "#ecc246", "on-secondary": "#ffffff",
+-                    "surface": "#f7fbf0", "on-secondary-fixed": "#241a00", "on-primary-fixed-variant": "#005312",
+-                    "inverse-surface": "#2d322b", "surface-dim": "#d7dbd2", "on-error": "#ffffff",
+-                    "surface-container-high": "#e5eadf", "primary": "#0d631b", "on-tertiary-container": "#ffedf0",
+-                    "outline": "#707a6c", "tertiary-container": "#b14b6f", "on-primary": "#ffffff",
+-                    "background": "#f7fbf0", "secondary-fixed": "#ffe08e"
+-            },
+-            "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+-            "spacing": { "card-gap": "24px", "container-padding": "24px", "base": "8px", "gutter": "16px", "section-margin": "48px" },
+-            "fontFamily": { "headline-lg": ["Plus Jakarta Sans"], "body-md": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"], "body-lg": ["Plus Jakarta Sans"] },
+-            "fontSize": {
+-                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+-                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+-                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+-                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+-                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+-                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+-                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+-            }
+-          },
+-        },
+-      }
+-    </script>
+-<style>
+-        body { background-color: #f7f7f2; font-family: 'Plus Jakarta Sans', sans-serif; color: #181d17; }
+-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+-        .custom-shadow { box-shadow: 0px 4px 12px rgba(31, 41, 55, 0.04); }
+-        .scrollbar-hide::-webkit-scrollbar { display: none; }
+-        .active-tab-glow { box-shadow: 0 0 15px rgba(136, 217, 130, 0.3); }
+-        .hidden { display: none !important; }
+-        html.dark body { background-color: #101410; color: #e5e9e2; }
+-        html.dark .bg-surface, html.dark .bg-surface-container, html.dark .bg-surface-container-low,
+-        html.dark .bg-surface-container-lowest, html.dark .bg-surface-container-high,
+-        html.dark .bg-surface-container-highest, html.dark .bg-white { background-color: #1b211c !important; }
+-        html.dark .bg-surface-dim { background-color: #11150f !important; }
+-        html.dark .text-on-surface, html.dark .text-on-background { color: #e5e9e2 !important; }
+-        html.dark .text-on-surface-variant, html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
+-        html.dark .border-outline-variant, html.dark .border-outline, html.dark .border { border-color: #3a423a !important; }
+-        .theme-option.active, .lang-option.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
+-    </style>
+-<script>
+-        // ponytail: apply saved theme before paint to avoid a light->dark flash
+-        if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+-    </script>
+-</head>
+-<body class="flex h-screen overflow-hidden">
+-<div class="fixed inset-0 bg-black/40 z-30 hidden md:hidden" id="sidebarOverlay"></div>
+-<aside class="fixed left-0 top-0 h-screen flex flex-col p-base space-y-2 border-r border-outline-variant bg-surface-container w-64 md:w-72 z-40 -translate-x-full md:translate-x-0 transition-transform duration-200" id="sidebar">
+-<div class="px-4 py-6 mb-4">
+-<div class="flex items-center gap-3">
+-<div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container shadow-sm">
+-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">potted_plant</span>
+-</div>
+-<div>
+-<h1 class="font-headline-md text-headline-md font-bold text-on-primary-fixed-variant leading-tight">Agri-Admin</h1>
+-<p class="font-label-sm text-label-sm text-on-surface-variant">PH Cooperatives Portal</p>
+-</div>
+-</div>
+-</div>
+-<nav class="flex-1 space-y-1">
+-<a class="flex items-center gap-base px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-semibold active-tab-glow" href="#">
+-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">map</span>
+-<span class="font-label-md text-label-md">Mapa ng Bukid / Farm Map</span>
+-</a>
+-<a class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-secondary-container hover:text-on-secondary-container rounded-lg font-semibold transition-colors" href="#" id="manageFarmersNav">
+-<span class="material-symbols-outlined">group</span>
+-<span class="font-label-md text-label-md">Mga Magsasaka / Farmers</span>
+-</a>
+-<a class="flex items-center gap-base px-4 py-3 text-on-surface-variant hover:bg-secondary-container hover:text-on-secondary-container rounded-lg font-semibold transition-colors" href="#" id="settingsNav">
+-<span class="material-symbols-outlined">settings</span>
+-<span class="font-label-md text-label-md">Mga Setting / Settings</span>
+-</a>
+-</nav>
+-<div class="pt-4 border-t border-outline-variant">
+-<button class="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary-container transition-colors active:scale-95 duration-200" id="sidebarAddPlotBtn">
+-<span class="material-symbols-outlined">add_circle</span>
+-                Magdagdag ng Bukid
+-            </button>
+-</div>
+-</aside>
+-<main class="flex-1 md:ml-72 flex flex-col h-full bg-background relative min-w-0">
+-<header class="sticky top-0 z-20 flex justify-between items-center w-full px-container-padding py-base bg-surface border-b border-outline-variant gap-3">
+-<div class="flex items-center gap-3 min-w-0">
+-<button class="md:hidden p-2 -ml-2 text-on-surface-variant hover:bg-surface-container-low rounded-full shrink-0" id="sidebarToggleBtn">
+-<span class="material-symbols-outlined">menu</span>
+-</button>
+-<h2 class="font-headline-sm text-headline-sm font-bold text-primary truncate">
+-                    Dashboard ng Rekomendasyon sa Pananim / Crop Recommendation Dashboard
+-                </h2>
+-</div>
+-<span id="statusMsg" class="text-label-sm text-on-surface-variant shrink-0"></span>
+-</header>
+-<div class="flex-1 flex overflow-hidden">
+-<section class="flex-1 h-full relative flex flex-col min-w-0">
+-<div class="flex-1 bg-surface-dim relative overflow-hidden" id="mapCanvas">
+-<div class="w-full h-full" id="map"></div>
+-<div class="absolute bottom-6 left-6 z-20 overflow-hidden bg-white rounded-xl border border-outline-variant custom-shadow p-4 space-y-2.5 min-w-[210px]" id="mapLegend">
+-<p class="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant mb-1 whitespace-nowrap">Lehenda / Legend</p>
+-<div id="legendFarmItems" class="hidden">
+-<div class="flex items-center gap-3 text-label-sm whitespace-nowrap"><span class="w-3 h-4 shrink-0" style="background:#ea4335;clip-path:polygon(50% 100%,0 35%,0 0,100% 0,100% 35%)"></span><span>Lokasyon ng Bukid / Farm Location</span></div>
+-<p class="text-[10px] text-on-surface-variant pt-1">I-click para mag-zoom in / Click to zoom in</p>
+-</div>
+-<div id="legendSensorItems" class="space-y-2.5"></div>
+-</div>
+-</div>
+-</section>
+-<aside class="w-0 h-full bg-surface-container border-l border-outline-variant overflow-hidden scrollbar-hide flex flex-col shrink-0 transition-[width] duration-200" id="detailPanel">
+-<div id="panelEmpty" class="p-container-padding text-on-surface-variant text-label-md">
+-                Select a pin on the map to view plot details. / Pumili ng pin sa mapa.
+-            </div>
+-<div id="panelContent" class="hidden flex-col flex-1">
+-<div class="p-container-padding bg-surface-container-lowest border-b border-outline-variant">
+-<div class="flex justify-between items-start mb-4">
+-<div>
+-<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold" id="panelOwner">-</h3>
+-<p class="text-label-md text-on-surface-variant" id="panelPlotId">-</p>
+-</div>
+-<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors" id="panelCloseBtn">
+-<span class="material-symbols-outlined">close</span>
+-</button>
+-</div>
+-<div class="flex gap-4">
+-<div class="flex items-center gap-1.5 text-label-sm text-on-surface-variant bg-surface-container-low px-3 py-1 rounded-full border border-outline-variant">
+-<span class="material-symbols-outlined text-[16px]">location_on</span>
+-<span id="panelCoords">-</span>
+-</div>
+-</div>
+-</div>
+-<div class="p-container-padding space-y-gutter">
+-<div class="bg-surface-container-lowest rounded-xl p-5 custom-shadow border-l-4 border-primary">
+-<h4 class="font-label-sm text-label-sm text-primary uppercase tracking-wider mb-4">AI Rekomendasyon / AI Recommendation</h4>
+-<div id="recHasCrop" class="flex items-center gap-4">
+-<div class="w-16 h-16 bg-primary-fixed rounded-xl flex items-center justify-center text-on-primary-fixed-variant">
+-<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">agriculture</span>
+-</div>
+-<div class="flex-1">
+-<p class="font-headline-md text-headline-md text-on-surface" id="recCrop">-</p>
+-<div class="flex items-center gap-2 mt-1">
+-<div class="flex-1 h-2 bg-surface-container rounded-full overflow-hidden"><div class="h-full bg-primary" id="recBar" style="width:0%"></div></div>
+-<span class="text-label-md font-bold text-primary" id="recPct">-</span>
+-</div>
+-</div>
+-</div>
+-<p id="recMessage" class="text-label-sm text-on-surface-variant mt-3"></p>
+-<button class="mt-3 text-label-sm text-primary font-bold hover:underline hidden" id="explainBtn">
+-                    Bakit? / Why? (offline AI)
+-                </button>
+-<p id="explainText" class="text-label-sm text-on-surface-variant mt-2 italic"></p>
+-</div>
+-<div class="bg-surface-container-lowest rounded-xl p-5 custom-shadow">
+-<h4 class="font-label-sm text-label-sm text-on-surface-variant mb-4 flex items-center gap-2">
+-<span class="material-symbols-outlined text-[18px]">sensors</span>
+-                            Pinakahuling Pagbasa / Latest Sensor Readings
+-                        </h4>
+-<div class="grid grid-cols-2 gap-3" id="readingsGrid">
+-<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Nitrogen (N)</p><p class="text-headline-sm text-primary" id="rN">-</p></div>
+-<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Phosphorus (P)</p><p class="text-headline-sm text-primary" id="rP">-</p></div>
+-<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Potassium (K)</p><p class="text-headline-sm text-primary" id="rK">-</p></div>
+-<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">pH Level</p><p class="text-headline-sm text-primary" id="rPh">-</p></div>
+-<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Temperature</p><p class="text-headline-sm text-on-surface" id="rTemp">-</p></div>
+-<div class="p-3 bg-surface-container-low rounded-lg"><p class="text-[10px] text-on-surface-variant font-bold">Moisture</p><p class="text-headline-sm text-on-surface" id="rMoisture">-</p></div>
+-</div>
+-<div class="flex gap-2 mt-4">
+-<button class="flex-1 py-2 border border-primary text-primary rounded-lg font-bold text-label-md hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2" id="addReadingBtn">
+-<span class="material-symbols-outlined text-[20px]">add</span> Add Reading
+-</button>
+-<button class="flex-1 py-2 border border-secondary text-secondary rounded-lg font-bold text-label-md hover:bg-secondary hover:text-white transition-all flex items-center justify-center gap-2" id="simulateBtn">
+-<span class="material-symbols-outlined text-[20px]">casino</span> Simulate
+-</button>
+-</div>
+-</div>
+-<div class="bg-surface-container-lowest rounded-xl p-5 custom-shadow">
+-<h4 class="font-label-sm text-label-sm text-on-surface-variant mb-4 flex items-center gap-2">
+-<span class="material-symbols-outlined text-[18px]">history</span> Kasaysayan ng Pagbasa / Reading History
+-                            </h4>
+-<div class="overflow-hidden border border-outline-variant rounded-lg">
+-<table class="w-full text-left text-label-sm">
+-<thead class="bg-surface-container text-on-surface-variant">
+-<tr><th class="px-3 py-2 font-bold uppercase text-[10px]">Date</th><th class="px-3 py-2 font-bold uppercase text-[10px]">pH</th><th class="px-3 py-2 font-bold uppercase text-[10px]">Temp</th><th class="px-3 py-2 font-bold uppercase text-[10px]">Crop</th></tr>
+-</thead>
+-<tbody class="divide-y divide-outline-variant" id="historyBody"></tbody>
+-</table>
+-</div>
+-</div>
+-</div>
+-</div>
+-</aside>
+-</div>
+-</main>
+-
+-<!-- Add Plot Modal -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="addPlotModal">
+-<div class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden">
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+-<h2 class="font-headline-md text-headline-md text-on-surface">Magdagdag ng Bukid <span class="text-on-surface-variant font-medium">/ Add Farm</span></h2>
+-<button class="text-on-surface-variant hover:text-error transition-colors" id="addPlotCloseBtn"><span class="material-symbols-outlined">close</span></button>
+-</div>
+-<form class="p-8 space-y-6" id="addPlotForm">
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">Pangalan ng Bukid <span class="italic">/ Farm Name (used to log in)</span></label>
+-<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="farmNameInput" placeholder="dela-cruz-farm" required type="text">
+-</div>
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">Pangalan ng May-ari <span class="italic">/ Owner Name</span></label>
+-<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="plotOwnerInput" placeholder="Juan Dela Cruz" required type="text">
+-</div>
+-<div class="space-y-3">
+-<div class="flex items-center justify-between">
+-<p class="text-label-md font-label-md text-primary">Draw the farm boundary / I-guhit ang hangganan</p>
+-<button class="text-label-sm font-bold text-primary flex items-center gap-1" id="locateMeBtn" type="button">
+-<span class="material-symbols-outlined text-[18px]">my_location</span> Use my location
+-</button>
+-</div>
+-<div class="relative w-full h-64 rounded-xl overflow-hidden border border-outline-variant bg-surface-container" id="addPlotMapDiv"></div>
+-<div class="flex items-center justify-between">
+-<div class="text-[11px] font-medium text-on-surface-variant" id="addPlotLatLng">Click the map to place corner points (3+), then Finish Shape.</div>
+-<div class="flex gap-2">
+-<button class="text-label-sm font-bold text-on-surface-variant" id="clearShapeBtn" type="button">Clear</button>
+-<button class="text-label-sm font-bold text-primary" id="finishShapeBtn" type="button">Finish Shape</button>
+-</div>
+-</div>
+-<div class="text-label-sm font-bold text-on-surface hidden" id="addPlotSensorInfo"></div>
+-</div>
+-</form>
+-<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-4">
+-<button class="px-6 py-2.5 rounded-lg border border-outline text-on-surface-variant font-semibold" id="addPlotCancelBtn" type="button">Cancel</button>
+-<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold" id="addPlotConfirmBtn" type="submit" form="addPlotForm">Confirm</button>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Farm Detail Modal (Edit/Delete) -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="farmDetailModal">
+-<div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+-<h3 class="font-headline-sm text-headline-sm text-on-surface">Farm Details</h3>
+-<button class="p-2 hover:bg-surface-container-low rounded-full" id="farmDetailCloseBtn"><span class="material-symbols-outlined">close</span></button>
+-</div>
+-<form class="p-8 space-y-5" id="farmDetailForm">
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">Farm Name</label>
+-<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="farmDetailNameInput" required type="text">
+-</div>
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">Owner Name</label>
+-<input class="w-full px-4 py-3 rounded-lg border border-outline bg-surface-container-low text-on-surface outline-none" id="farmDetailOwnerInput" type="text">
+-</div>
+-<div class="space-y-3">
+-<div class="flex items-center justify-between">
+-<p class="text-label-md font-label-md text-primary">Hangganan / Boundary &amp; Location</p>
+-<button class="text-label-sm font-bold text-primary" id="farmDetailRedrawBtn" type="button">Redraw</button>
+-</div>
+-<div class="relative w-full h-56 rounded-xl overflow-hidden border border-outline-variant bg-surface-container" id="farmDetailMapDiv"></div>
+-<div class="flex items-center justify-between">
+-<div class="text-[11px] font-medium text-on-surface-variant" id="farmDetailBoundaryHint">Click "Redraw" to change the boundary.</div>
+-<div class="flex gap-2 hidden" id="farmDetailShapeBtns">
+-<button class="text-label-sm font-bold text-on-surface-variant" id="farmDetailClearBtn" type="button">Clear</button>
+-<button class="text-label-sm font-bold text-primary" id="farmDetailFinishBtn" type="button">Finish Shape</button>
+-</div>
+-</div>
+-</div>
+-<p class="text-label-sm text-on-surface-variant" id="farmDetailMeta"></p>
+-</form>
+-<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-between gap-4">
+-<button class="px-6 py-2.5 rounded-lg border border-error text-error font-semibold" id="farmDetailDeleteBtn" type="button">Delete Farm</button>
+-<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold" type="submit" form="farmDetailForm">Save</button>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Settings Modal -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="settingsModal">
+-<div class="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+-<h3 class="font-headline-sm text-headline-sm text-on-surface">Mga Setting / Settings</h3>
+-<button class="p-2 hover:bg-surface-container-low rounded-full" id="settingsCloseBtn"><span class="material-symbols-outlined">close</span></button>
+-</div>
+-<div class="p-8 space-y-6">
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">Tema / Theme</label>
+-<div class="flex gap-2">
+-<button class="theme-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-theme="light" type="button">Light</button>
+-<button class="theme-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-theme="dark" type="button">Dark</button>
+-</div>
+-</div>
+-<div class="space-y-2">
+-<label class="block text-label-md font-label-md text-on-surface-variant">Wika / Language</label>
+-<div class="flex gap-2">
+-<button class="lang-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-lang="both" type="button">Both</button>
+-<button class="lang-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-lang="fil" type="button">Tagalog</button>
+-<button class="lang-option flex-1 py-2.5 rounded-lg border border-outline text-on-surface font-semibold" data-lang="en" type="button">English</button>
+-</div>
+-</div>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Farmers List Modal -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="farmersListModal">
+-<div class="bg-surface-container-lowest w-full max-w-lg rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+-<h3 class="font-headline-sm text-headline-sm text-on-surface">Mga Magsasaka / Farmers</h3>
+-<button class="p-2 hover:bg-surface-container-low rounded-full" id="farmersListCloseBtn"><span class="material-symbols-outlined">close</span></button>
+-</div>
+-<div class="p-4 overflow-y-auto flex-1 space-y-2" id="farmersListBody"></div>
+-</div>
+-</div>
+-
+-<!-- Add Reading Modal -->
+-<div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-on-background/40 backdrop-blur-[2px] hidden" id="addReadingModal">
+-<div class="bg-surface-container-lowest w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden">
+-<div class="px-8 py-6 border-b border-outline-variant flex justify-between items-center">
+-<h3 class="font-headline-sm text-headline-sm text-on-surface">Magdagdag ng Pagbasa / Add Reading</h3>
+-<button class="p-2 hover:bg-surface-container-low rounded-full" id="addReadingCloseBtn"><span class="material-symbols-outlined">close</span></button>
+-</div>
+-<form class="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5" id="addReadingForm">
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Nitrogen (N) mg/kg</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inN" required type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Phosphorus (P) mg/kg</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inP" required type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Potassium (K) mg/kg</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inK" required type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">pH Level</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inPh" required step="0.1" type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Temperature (°C)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inTemp" required step="0.1" type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Humidity (%)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inHumidity" required type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Rainfall (mm)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inRainfall" required type="number"></div>
+-<div class="space-y-1.5"><label class="block font-label-md text-on-surface-variant">Soil Moisture (%)</label><input class="w-full border border-outline-variant rounded-lg px-4 py-3" id="inMoisture" type="number"></div>
+-</form>
+-<div class="px-8 py-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-4">
+-<button class="px-6 py-2.5 rounded-lg border border-outline text-on-surface-variant font-semibold" id="addReadingCancelBtn" type="button">Cancel</button>
+-<button class="px-8 py-2.5 rounded-lg bg-primary text-white font-semibold" type="submit" form="addReadingForm">Save</button>
+-</div>
+-</div>
+-</div>
+-
+-<script>
+-        const API = ""; // ponytail: relative — frontend is now served by the same FastAPI process
+-        const PH_CENTER = { lat: 12.8797, lng: 121.7740 };
+-
+-        let plots = [];
+-        let selectedPlotId = null;
+-        let latestReadingId = null;
+-        let map = null;
+-        let markers = [];
+-        let farmPolygons = [];
+-        let addPlotMapObj = null;
+-        let pendingVertices = [];
+-        let vertexMarkers = [];
+-        let pendingPolygon = null;
+-        let pendingHectares = null;
+-        let shapeFinished = false;
+-
+-        function pinColor(plot) {
+-            const hasReading = plot.soil_n !== null && plot.soil_n !== undefined;
+-            return hasReading ? "#2e7d32" : "#9ca3af";
+-        }
+-
+-        const SENSOR_ZOOM_THRESHOLD = 14; // below this, show one pin per farm instead of every sensor
+-
+-        function sensorIconUrl(color) {
+-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24">
+-                <circle cx="12" cy="16" r="3.2" fill="${color}" stroke="#fff" stroke-width="1"/>
+-                <path d="M7.5 12.5a6.5 6.5 0 0 1 9 0" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round"/>
+-                <path d="M4.5 9a10.5 10.5 0 0 1 15 0" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55"/>
+-            </svg>`;
+-            return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+-        }
+-
+-        function buildSensorLegend() {
+-            const items = [
+-                ["#2e7d32", "May Reading ang Sensor / Sensor has a Reading"],
+-                ["#9ca3af", "Walang Reading / No Reading Yet"],
+-            ];
+-            document.getElementById("legendSensorItems").innerHTML = items.map(([color, label]) => `
+-                <div class="flex items-center gap-3 text-label-sm whitespace-nowrap">
+-                    <img class="w-5 h-5 shrink-0" src="${sensorIconUrl(color)}">
+-                    <span>${label}</span>
+-                </div>
+-            `).join("");
+-        }
+-
+-        function farmCentroid(farm) {
+-            const lats = farm.polygon.map(p => p[0]);
+-            const lngs = farm.polygon.map(p => p[1]);
+-            return { lat: lats.reduce((a, b) => a + b, 0) / lats.length, lng: lngs.reduce((a, b) => a + b, 0) / lngs.length };
+-        }
+-
+-        function updateMapZoomView() {
+-            const zoomedIn = map.getZoom() >= SENSOR_ZOOM_THRESHOLD;
+-            markers.forEach(m => m.setMap(zoomedIn ? map : null));
+-            farmMarkers.forEach(m => m.setMap(zoomedIn ? null : map));
+-            document.getElementById("legendSensorItems").classList.toggle("hidden", !zoomedIn);
+-            document.getElementById("legendFarmItems").classList.toggle("hidden", zoomedIn);
+-        }
+-
+-        function setStatus(msg) {
+-            document.getElementById("statusMsg").textContent = msg;
+-        }
+-
+-        function initMaps() {
+-            map = new google.maps.Map(document.getElementById("map"), {
+-                center: PH_CENTER,
+-                zoom: 6,
+-                zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+-                streetViewControl: false,
+-            });
+-            addPlotMapObj = new google.maps.Map(document.getElementById("addPlotMapDiv"), {
+-                center: PH_CENTER,
+-                zoom: 6,
+-                zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+-                mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT },
+-                streetViewControl: false,
+-            });
+-
+-            // ponytail: DrawingManager was removed from Maps JS (v3.65+) — place vertices by hand instead
+-            addPlotMapObj.addListener("click", (e) => {
+-                if (shapeFinished) return;
+-                pendingVertices.push({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+-                redrawPendingShape();
+-            });
+-
+-            map.addListener("zoom_changed", updateMapZoomView);
+-            buildSensorLegend();
+-            updateMapZoomView();
+-
+-            loadPlots().catch(() => setStatus("Could not reach backend at " + API));
+-            loadFarms().catch(() => {});
+-        }
+-
+-        function redrawPendingShape() {
+-            if (pendingPolygon) pendingPolygon.setMap(null);
+-            vertexMarkers.forEach(m => m.setMap(null));
+-            vertexMarkers = pendingVertices.map(v => new google.maps.Marker({
+-                position: v, map: addPlotMapObj,
+-                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: "#2e7d32", fillOpacity: 1, strokeWeight: 0 },
+-            }));
+-            pendingPolygon = pendingVertices.length >= 2
+-                ? new google.maps.Polygon({
+-                    paths: pendingVertices, map: addPlotMapObj,
+-                    fillColor: "#2e7d32", fillOpacity: 0.2, strokeColor: "#2e7d32", strokeWeight: 2,
+-                })
+-                : null;
+-        }
+-
+-        document.getElementById("finishShapeBtn").addEventListener("click", () => {
+-            if (pendingVertices.length < 3) { alert("Place at least 3 points to form a shape."); return; }
+-            shapeFinished = true;
+-            pendingHectares = google.maps.geometry.spherical.computeArea(pendingVertices) / 10000;
+-            const sensorCount = Math.min(30, Math.max(1, Math.round(pendingHectares * 5)));
+-            document.getElementById("addPlotLatLng").textContent = `Hectares: ${pendingHectares.toFixed(2)}`;
+-            const info = document.getElementById("addPlotSensorInfo");
+-            info.textContent = `Suggested sensors: ${sensorCount} (5/hectare)`;
+-            info.classList.remove("hidden");
+-        });
+-
+-        document.getElementById("clearShapeBtn").addEventListener("click", () => {
+-            pendingVertices = [];
+-            shapeFinished = false;
+-            pendingHectares = null;
+-            if (pendingPolygon) { pendingPolygon.setMap(null); pendingPolygon = null; }
+-            vertexMarkers.forEach(m => m.setMap(null));
+-            vertexMarkers = [];
+-            document.getElementById("addPlotLatLng").textContent = "Click the map to place corner points (3+), then Finish Shape.";
+-            document.getElementById("addPlotSensorInfo").classList.add("hidden");
+-        });
+-
+-        document.getElementById("locateMeBtn").addEventListener("click", () => {
+-            if (!navigator.geolocation) { setStatus("This browser has no geolocation support."); return; }
+-            if (location.protocol === "file:") {
+-                setStatus("Geolocation is blocked on file:// pages — serve this folder over http(s) instead.");
+-                return;
+-            }
+-            navigator.geolocation.getCurrentPosition((pos) => {
+-                const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+-                addPlotMapObj.setCenter(here);
+-                addPlotMapObj.setZoom(17);
+-            }, (err) => setStatus(`Could not get your location (${err.message}).`));
+-        });
+-
+-        let farms = [];
+-        let farmMarkers = [];
+-
+-        async function loadFarms() {
+-            const res = await fetch(`${API}/farms`);
+-            farms = await res.json();
+-            farmPolygons.forEach(p => p.setMap(null));
+-            farmPolygons = farms.map(farm => {
+-                const poly = new google.maps.Polygon({
+-                    paths: farm.polygon.map(([lat, lng]) => ({ lat, lng })),
+-                    map: map,
+-                    fillColor: "#2e7d32", fillOpacity: 0.12, strokeColor: "#2e7d32", strokeWeight: 2,
+-                });
+-                poly.addListener("click", () => openFarmDetail(farm));
+-                return poly;
+-            });
+-
+-            farmMarkers.forEach(m => m.setMap(null));
+-            farmMarkers = farms.map(farm => {
+-                const marker = new google.maps.Marker({
+-                    position: farmCentroid(farm),
+-                    title: farm.farm_name || farm.farm_id,
+-                });
+-                marker.addListener("click", () => {
+-                    map.setCenter(farmCentroid(farm));
+-                    map.setZoom(SENSOR_ZOOM_THRESHOLD + 2);
+-                });
+-                return marker;
+-            });
+-            updateMapZoomView();
+-        }
+-
+-        // --- Farm Detail modal (Edit/Delete, incl. boundary/location redraw) ---
+-        const farmDetailModal = document.getElementById("farmDetailModal");
+-        let selectedFarmId = null;
+-        let farmDetailMapObj = null;
+-        let detailVertices = [];
+-        let detailVertexMarkers = [];
+-        let detailPolygonOverlay = null;
+-        let detailHectares = null;
+-        let detailEditing = false;
+-
+-        function redrawDetailShape() {
+-            if (detailPolygonOverlay) detailPolygonOverlay.setMap(null);
+-            detailVertexMarkers.forEach(m => m.setMap(null));
+-            detailVertexMarkers = detailVertices.map(v => new google.maps.Marker({
+-                position: v, map: farmDetailMapObj,
+-                icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: "#0d631b", fillOpacity: 1, strokeWeight: 0 },
+-            }));
+-            detailPolygonOverlay = detailVertices.length >= 2
+-                ? new google.maps.Polygon({
+-                    paths: detailVertices, map: farmDetailMapObj,
+-                    fillColor: "#0d631b", fillOpacity: 0.2, strokeColor: "#0d631b", strokeWeight: 2,
+-                })
+-                : null;
+-        }
+-
+-        function setDetailEditing(editing) {
+-            detailEditing = editing;
+-            document.getElementById("farmDetailShapeBtns").classList.toggle("hidden", !editing);
+-            document.getElementById("farmDetailBoundaryHint").textContent = editing
+-                ? "Click the map to place corner points (3+), then Finish Shape."
+-                : "Click \"Redraw\" to change the boundary.";
+-        }
+-
+-        function openFarmDetail(farm) {
+-            selectedFarmId = farm.farm_id;
+-            document.getElementById("farmDetailNameInput").value = farm.farm_name || "";
+-            document.getElementById("farmDetailOwnerInput").value = farm.owner_name || "";
+-            document.getElementById("farmDetailMeta").textContent = `${farm.hectares.toFixed(2)} hectares — ${farm.farm_id}`;
+-
+-            detailVertices = farm.polygon.map(([lat, lng]) => ({ lat, lng }));
+-            detailHectares = farm.hectares;
+-            setDetailEditing(false);
+-            farmDetailModal.classList.remove("hidden");
+-
+-            if (!farmDetailMapObj) {
+-                farmDetailMapObj = new google.maps.Map(document.getElementById("farmDetailMapDiv"), { center: PH_CENTER, zoom: 6, zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM }, streetViewControl: false });
+-                farmDetailMapObj.addListener("click", (e) => {
+-                    if (!detailEditing) return;
+-                    detailVertices.push({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+-                    redrawDetailShape();
+-                });
+-            }
+-            setTimeout(() => {
+-                google.maps.event.trigger(farmDetailMapObj, "resize");
+-                const bounds = new google.maps.LatLngBounds();
+-                detailVertices.forEach(v => bounds.extend(v));
+-                farmDetailMapObj.fitBounds(bounds);
+-                redrawDetailShape();
+-            }, 0);
+-        }
+-        document.getElementById("farmDetailCloseBtn").addEventListener("click", () => farmDetailModal.classList.add("hidden"));
+-
+-        document.getElementById("farmDetailRedrawBtn").addEventListener("click", () => {
+-            detailVertices = [];
+-            detailHectares = null;
+-            if (detailPolygonOverlay) { detailPolygonOverlay.setMap(null); detailPolygonOverlay = null; }
+-            detailVertexMarkers.forEach(m => m.setMap(null));
+-            detailVertexMarkers = [];
+-            setDetailEditing(true);
+-        });
+-
+-        document.getElementById("farmDetailClearBtn").addEventListener("click", () => {
+-            detailVertices = [];
+-            if (detailPolygonOverlay) { detailPolygonOverlay.setMap(null); detailPolygonOverlay = null; }
+-            detailVertexMarkers.forEach(m => m.setMap(null));
+-            detailVertexMarkers = [];
+-        });
+-
+-        document.getElementById("farmDetailFinishBtn").addEventListener("click", () => {
+-            if (detailVertices.length < 3) { alert("Place at least 3 points to form a shape."); return; }
+-            detailHectares = google.maps.geometry.spherical.computeArea(detailVertices) / 10000;
+-            setDetailEditing(false);
+-            document.getElementById("farmDetailBoundaryHint").textContent = `New hectares: ${detailHectares.toFixed(2)} — Save to apply.`;
+-        });
+-
+-        document.getElementById("farmDetailForm").addEventListener("submit", async (e) => {
+-            e.preventDefault();
+-            if (detailVertices.length < 3) { alert("The farm needs at least 3 boundary points."); return; }
+-            const res = await fetch(`${API}/farms/${encodeURIComponent(selectedFarmId)}`, {
+-                method: "PUT",
+-                headers: { "Content-Type": "application/json" },
+-                body: JSON.stringify({
+-                    farm_name: document.getElementById("farmDetailNameInput").value,
+-                    owner_name: document.getElementById("farmDetailOwnerInput").value,
+-                    hectares: detailHectares,
+-                    polygon: detailVertices.map(v => [v.lat, v.lng]),
+-                }),
+-            });
+-            if (!res.ok) { const err = await res.json(); alert(err.detail || "Could not update farm."); return; }
+-            farmDetailModal.classList.add("hidden");
+-            setStatus("Farm updated");
+-            await loadFarms();
+-            renderFarmersList();
+-        });
+-
+-        document.getElementById("farmDetailDeleteBtn").addEventListener("click", async () => {
+-            if (!confirm("Delete this farm and all its sensor sub-plots? This cannot be undone.")) return;
+-            await fetch(`${API}/farms/${encodeURIComponent(selectedFarmId)}`, { method: "DELETE" });
+-            farmDetailModal.classList.add("hidden");
+-            setStatus("Farm deleted");
+-            await loadFarms();
+-            await loadPlots();
+-            renderFarmersList();
+-        });
+-
+-        // --- Settings: theme + language ---
+-        // ponytail: bilingual labels are hardcoded as "Tagalog / English" text — split them
+-        // generically at runtime instead of hand-wrapping every string in spans.
+-        function wrapBilingualText(root) {
+-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+-            const nodes = [];
+-            let n;
+-            while ((n = walker.nextNode())) nodes.push(n);
+-            for (const node of nodes) {
+-                const text = node.nodeValue;
+-                const idx = text.indexOf(" / ");
+-                if (idx === -1 || !node.parentNode || node.parentNode.closest("script, style")) continue;
+-                const filSpan = document.createElement("span");
+-                filSpan.className = "lang-fil";
+-                filSpan.textContent = text.slice(0, idx);
+-                const sepSpan = document.createElement("span");
+-                sepSpan.className = "lang-sep";
+-                sepSpan.textContent = " / ";
+-                const enSpan = document.createElement("span");
+-                enSpan.className = "lang-en";
+-                enSpan.textContent = text.slice(idx + 3);
+-                const parent = node.parentNode;
+-                parent.insertBefore(filSpan, node);
+-                parent.insertBefore(sepSpan, node);
+-                parent.insertBefore(enSpan, node);
+-                parent.removeChild(node);
+-            }
+-        }
+-
+-        function applyLanguage(pref) {
+-            document.querySelectorAll(".lang-fil").forEach(el => el.style.display = pref === "en" ? "none" : "");
+-            document.querySelectorAll(".lang-en, span.italic").forEach(el => el.style.display = pref === "fil" ? "none" : "");
+-            document.querySelectorAll(".lang-sep").forEach(el => el.style.display = pref === "both" ? "" : "none");
+-        }
+-
+-        function applyTheme(theme) {
+-            document.documentElement.classList.toggle("dark", theme === "dark");
+-        }
+-
+-        wrapBilingualText(document.body);
+-        const savedTheme = localStorage.getItem("theme") || "light";
+-        const savedLang = localStorage.getItem("lang") || "both";
+-        applyTheme(savedTheme);
+-        applyLanguage(savedLang);
+-
+-        const settingsModal = document.getElementById("settingsModal");
+-        function refreshSettingsUI() {
+-            document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === (localStorage.getItem("theme") || "light")));
+-            document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === (localStorage.getItem("lang") || "both")));
+-        }
+-        document.getElementById("settingsNav").addEventListener("click", (e) => {
+-            e.preventDefault();
+-            setSidebarOpen(false);
+-            refreshSettingsUI();
+-            settingsModal.classList.remove("hidden");
+-        });
+-        document.getElementById("settingsCloseBtn").addEventListener("click", () => settingsModal.classList.add("hidden"));
+-        document.querySelectorAll(".theme-option").forEach(btn => btn.addEventListener("click", () => {
+-            localStorage.setItem("theme", btn.dataset.theme);
+-            applyTheme(btn.dataset.theme);
+-            refreshSettingsUI();
+-        }));
+-        document.querySelectorAll(".lang-option").forEach(btn => btn.addEventListener("click", () => {
+-            localStorage.setItem("lang", btn.dataset.lang);
+-            applyLanguage(btn.dataset.lang);
+-            refreshSettingsUI();
+-        }));
+-
+-        // --- Farmers list modal ---
+-        const farmersListModal = document.getElementById("farmersListModal");
+-
+-        function renderFarmersList() {
+-            const body = document.getElementById("farmersListBody");
+-            body.innerHTML = "";
+-            if (!farms.length) {
+-                body.innerHTML = `<p class="text-label-md text-on-surface-variant p-4">No farms registered yet.</p>`;
+-                return;
+-            }
+-            for (const farm of farms) {
+-                const row = document.createElement("button");
+-                row.type = "button";
+-                row.className = "w-full flex items-center justify-between p-4 bg-surface-container-low hover:bg-surface-container rounded-lg text-left transition-colors";
+-                row.innerHTML = `
+-                    <div>
+-                        <p class="font-bold text-on-surface">${farm.farm_name || "(no name)"}</p>
+-                        <p class="text-label-sm text-on-surface-variant">${farm.owner_name || "-"} &middot; ${farm.hectares.toFixed(2)} ha</p>
+-                    </div>
+-                    <span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+-                `;
+-                row.addEventListener("click", () => {
+-                    farmersListModal.classList.add("hidden");
+-                    openFarmDetail(farm);
+-                });
+-                body.appendChild(row);
+-            }
+-        }
+-
+-        document.getElementById("manageFarmersNav").addEventListener("click", async (e) => {
+-            e.preventDefault();
+-            setSidebarOpen(false);
+-            await loadFarms();
+-            renderFarmersList();
+-            farmersListModal.classList.remove("hidden");
+-        });
+-        document.getElementById("farmersListCloseBtn").addEventListener("click", () => farmersListModal.classList.add("hidden"));
+-
+-        // GOOGLE_MAPS_API_KEY comes from config.js (gitignored, not this file)
+-        const mapsScript = document.createElement("script");
+-        mapsScript.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry&callback=initMaps&loading=async`;
+-        mapsScript.async = true;
+-        document.head.appendChild(mapsScript);
+-
+-        async function loadPlots() {
+-            const res = await fetch(`${API}/plots`);
+-            plots = await res.json();
+-            renderPins();
+-            if (selectedPlotId) selectPlot(selectedPlotId);
+-        }
+-
+-        function renderPins() {
+-            markers.forEach(m => m.setMap(null));
+-            markers = [];
+-            const zoomedIn = map.getZoom() >= SENSOR_ZOOM_THRESHOLD;
+-            for (const plot of plots) {
+-                const marker = new google.maps.Marker({
+-                    position: { lat: plot.lat, lng: plot.lng },
+-                    map: zoomedIn ? map : null,
+-                    title: `${plot.owner_name || plot.plot_id} (${plot.predicted_crop || "no match"})`,
+-                    icon: {
+-                        url: sensorIconUrl(pinColor(plot)),
+-                        scaledSize: new google.maps.Size(30, 30),
+-                        anchor: new google.maps.Point(15, 22),
+-                    },
+-                });
+-                marker.addListener("click", () => selectPlot(plot.plot_id));
+-                markers.push(marker);
+-            }
+-        }
+-
+-        function setPanelOpen(open) {
+-            const aside = document.getElementById("detailPanel");
+-            aside.classList.toggle("w-0", !open);
+-            aside.classList.toggle("overflow-hidden", !open);
+-            aside.classList.toggle("w-full", open);
+-            aside.classList.toggle("md:w-[420px]", open);
+-            aside.classList.toggle("overflow-y-auto", open);
+-        }
+-
+-        async function selectPlot(plotId) {
+-            selectedPlotId = plotId;
+-            setPanelOpen(true);
+-            document.getElementById("panelEmpty").classList.add("hidden");
+-            document.getElementById("panelContent").classList.remove("hidden");
+-
+-            const res = await fetch(`${API}/readings/${plotId}`);
+-            const readings = await res.json();
+-            const latest = readings.find(r => r.soil_n !== null) || null;
+-            const head = readings[0];
+-
+-            document.getElementById("panelOwner").textContent = head.owner_name || "-";
+-            document.getElementById("panelPlotId").textContent = `Plot ID: ${plotId}`;
+-            document.getElementById("panelCoords").textContent = `${head.lat.toFixed(4)}° N, ${head.lng.toFixed(4)}° E`;
+-
+-            latestReadingId = latest ? latest.id : null;
+-            document.getElementById("explainText").textContent = "";
+-            const explainBtn = document.getElementById("explainBtn");
+-            explainBtn.textContent = "Bakit? / Why? (offline AI)";
+-
+-            if (latest && latest.predicted_crop) {
+-                document.getElementById("recCrop").textContent = latest.predicted_crop;
+-                document.getElementById("recPct").textContent = Math.round(latest.confidence * 100) + "%";
+-                document.getElementById("recBar").style.width = Math.round(latest.confidence * 100) + "%";
+-                document.getElementById("recMessage").textContent = "";
+-                explainBtn.classList.remove("hidden");
+-            } else if (latest) {
+-                document.getElementById("recCrop").textContent = "No confident match";
+-                document.getElementById("recPct").textContent = "-";
+-                document.getElementById("recBar").style.width = "0%";
+-                document.getElementById("recMessage").textContent = latest.message || "No confident PH-relevant match for this reading.";
+-                explainBtn.classList.add("hidden");
+-            } else {
+-                document.getElementById("recCrop").textContent = "No readings yet";
+-                document.getElementById("recPct").textContent = "-";
+-                document.getElementById("recBar").style.width = "0%";
+-                document.getElementById("recMessage").textContent = "Add a reading to get a recommendation.";
+-                explainBtn.classList.add("hidden");
+-            }
+-
+-            document.getElementById("rN").textContent = latest ? latest.soil_n : "-";
+-            document.getElementById("rP").textContent = latest ? latest.soil_p : "-";
+-            document.getElementById("rK").textContent = latest ? latest.soil_k : "-";
+-            document.getElementById("rPh").textContent = latest ? latest.soil_ph : "-";
+-            document.getElementById("rTemp").textContent = latest ? `${latest.air_temp_c}°C` : "-";
+-            document.getElementById("rMoisture").textContent = latest && latest.soil_moisture_pct != null ? `${latest.soil_moisture_pct}%` : "-";
+-
+-            const historyBody = document.getElementById("historyBody");
+-            historyBody.innerHTML = "";
+-            for (const r of readings.filter(r => r.soil_n !== null).slice(0, 5)) {
+-                const tr = document.createElement("tr");
+-                tr.className = "hover:bg-surface-container-low transition-colors";
+-                tr.innerHTML = `<td class="px-3 py-2">${new Date(r.timestamp).toLocaleDateString()}</td><td class="px-3 py-2">${r.soil_ph}</td><td class="px-3 py-2">${r.air_temp_c}°C</td><td class="px-3 py-2">${r.predicted_crop || "-"}</td>`;
+-                historyBody.appendChild(tr);
+-            }
+-        }
+-
+-        document.getElementById("panelCloseBtn").addEventListener("click", () => {
+-            selectedPlotId = null;
+-            setPanelOpen(false);
+-            document.getElementById("panelContent").classList.add("hidden");
+-            document.getElementById("panelEmpty").classList.remove("hidden");
+-        });
+-
+-        // --- Add Plot modal ---
+-        const addPlotModal = document.getElementById("addPlotModal");
+-
+-        function openAddPlot() {
+-            pendingVertices = [];
+-            pendingHectares = null;
+-            shapeFinished = false;
+-            document.getElementById("addPlotForm").reset();
+-            document.getElementById("addPlotLatLng").textContent = "Click the map to place corner points (3+), then Finish Shape.";
+-            document.getElementById("addPlotSensorInfo").classList.add("hidden");
+-            if (pendingPolygon) { pendingPolygon.setMap(null); pendingPolygon = null; }
+-            vertexMarkers.forEach(m => m.setMap(null));
+-            vertexMarkers = [];
+-            addPlotModal.classList.remove("hidden");
+-            if (!addPlotMapObj) {
+-                setStatus("Map still loading — wait a second and try again.");
+-                return;
+-            }
+-            // map was sized 0x0 while the modal was hidden — re-trigger layout now that it's visible
+-            setTimeout(() => {
+-                google.maps.event.trigger(addPlotMapObj, "resize");
+-                addPlotMapObj.setCenter(PH_CENTER);
+-            }, 0);
+-        }
+-        document.getElementById("sidebarAddPlotBtn").addEventListener("click", () => { setSidebarOpen(false); openAddPlot(); });
+-
+-        // ponytail: mobile off-canvas sidebar — desktop (md+) ignores this, sidebar stays put via CSS
+-        function setSidebarOpen(open) {
+-            document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+-            document.getElementById("sidebarOverlay").classList.toggle("hidden", !open);
+-        }
+-        document.getElementById("sidebarToggleBtn").addEventListener("click", () => setSidebarOpen(true));
+-        document.getElementById("sidebarOverlay").addEventListener("click", () => setSidebarOpen(false));
+-        document.getElementById("addPlotCloseBtn").addEventListener("click", () => addPlotModal.classList.add("hidden"));
+-        document.getElementById("addPlotCancelBtn").addEventListener("click", () => addPlotModal.classList.add("hidden"));
+-
+-        document.getElementById("addPlotForm").addEventListener("submit", async (e) => {
+-            e.preventDefault();
+-            if (!shapeFinished) { alert("Draw the farm boundary and click Finish Shape first."); return; }
+-            const res = await fetch(`${API}/farms`, {
+-                method: "POST",
+-                headers: { "Content-Type": "application/json" },
+-                body: JSON.stringify({
+-                    farm_name: document.getElementById("farmNameInput").value,
+-                    owner_name: document.getElementById("plotOwnerInput").value,
+-                    hectares: pendingHectares,
+-                    polygon: pendingVertices.map(v => [v.lat, v.lng]),
+-                }),
+-            });
+-            if (!res.ok) { const err = await res.json(); alert(err.detail || "Could not create farm."); return; }
+-            const farm = await res.json();
+-            addPlotModal.classList.add("hidden");
+-            setStatus(`Added farm ${farm.farm_name} with ${farm.sensor_count} sensors`);
+-            alert(`"${farm.farm_name}" is now registered. The farmer can log in on farmer.html using this exact farm name: "${farm.farm_name}".`);
+-            await loadPlots();
+-            await loadFarms();
+-        });
+-
+-        // --- Add Reading modal ---
+-        const addReadingModal = document.getElementById("addReadingModal");
+-        document.getElementById("addReadingBtn").addEventListener("click", () => {
+-            document.getElementById("addReadingForm").reset();
+-            addReadingModal.classList.remove("hidden");
+-        });
+-        document.getElementById("addReadingCloseBtn").addEventListener("click", () => addReadingModal.classList.add("hidden"));
+-        document.getElementById("addReadingCancelBtn").addEventListener("click", () => addReadingModal.classList.add("hidden"));
+-
+-        document.getElementById("addReadingForm").addEventListener("submit", async (e) => {
+-            e.preventDefault();
+-            const plot = plots.find(p => p.plot_id === selectedPlotId);
+-            await fetch(`${API}/readings`, {
+-                method: "POST",
+-                headers: { "Content-Type": "application/json" },
+-                body: JSON.stringify({
+-                    plot_id: selectedPlotId,
+-                    owner_name: plot.owner_name,
+-                    lat: plot.lat,
+-                    lng: plot.lng,
+-                    soil_n: parseFloat(document.getElementById("inN").value),
+-                    soil_p: parseFloat(document.getElementById("inP").value),
+-                    soil_k: parseFloat(document.getElementById("inK").value),
+-                    soil_ph: parseFloat(document.getElementById("inPh").value),
+-                    air_temp_c: parseFloat(document.getElementById("inTemp").value),
+-                    humidity_pct: parseFloat(document.getElementById("inHumidity").value),
+-                    rainfall_mm: parseFloat(document.getElementById("inRainfall").value),
+-                    soil_moisture_pct: document.getElementById("inMoisture").value ? parseFloat(document.getElementById("inMoisture").value) : null,
+-                }),
+-            });
+-            addReadingModal.classList.add("hidden");
+-            setStatus("Reading added");
+-            await loadPlots();
+-        });
+-
+-        // --- Explain (offline AI) ---
+-        document.getElementById("explainBtn").addEventListener("click", async (e) => {
+-            if (!latestReadingId) return;
+-            e.target.textContent = "Thinking... (this can take a while on CPU)";
+-            e.target.disabled = true;
+-            try {
+-                const res = await fetch(`${API}/readings/${latestReadingId}/explain?lang=${localStorage.getItem("lang") === "both" ? "en" : (localStorage.getItem("lang") || "en")}`);
+-                const data = await res.json();
+-                document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
+-            } catch {
+-                document.getElementById("explainText").textContent = "Could not reach the offline AI model.";
+-            }
+-            e.target.textContent = "Bakit? / Why? (offline AI)";
+-            e.target.disabled = false;
+-        });
+-
+-        // --- Simulate ---
+-        document.getElementById("simulateBtn").addEventListener("click", async () => {
+-            if (!selectedPlotId) return;
+-            setStatus("Simulating...");
+-            await fetch(`${API}/readings/simulate?plot_id=${encodeURIComponent(selectedPlotId)}`, { method: "POST" });
+-            setStatus("Simulated reading added");
+-            await loadPlots();
+-        });
+-    </script>
+-</body></html>
+diff --git a/frontend/farmer.html b/frontend/farmer.html
+index c390722..f71589d 100644
+--- a/frontend/farmer.html
++++ b/frontend/farmer.html
+@@ -1,349 +1,609 @@
+ <!DOCTYPE html>
+-<html lang="en"><head>
++<html lang="fil">
++<head>
+ <meta charset="utf-8"/>
+-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+-<title>Agri-Admin | Aking Bukid</title>
++<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
++<title>Aking Bukid</title>
++<script>
++  const farmerAuth = JSON.parse(sessionStorage.getItem("farmerAuth") || "null");
++  if (!farmerAuth) window.location.replace("/");
++</script>
++<script>
++  if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
++</script>
+ <script src="https://cdn.tailwindcss.com"></script>
+-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
++<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
++<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+ <style>
+-        body { font-family: 'Plus Jakarta Sans', sans-serif; background:#f7fbf0; color:#181d17; }
+-        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+-        .hidden { display: none !important; }
+-        html.dark body { background-color: #101410; color: #e5e9e2; }
+-        html.dark .bg-white, html.dark .bg-gray-50 { background-color: #1b211c !important; }
+-        html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
+-        html.dark .border, html.dark .border-t, html.dark .border-b { border-color: #3a423a !important; }
+-        .theme-option.active, .lang-option.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
+-        .nav-btn.active { color: #0d631b; }
+-        .nav-btn { color: #9ca3af; }
+-        html.dark .nav-btn { color: #6b7280; }
+-        html.dark .nav-btn.active { color: #4ade80; }
+-    </style>
+-<script>
+-        if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");
+-    </script>
++  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f7fbf0; color: #181d17; }
++  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
++  .hidden { display: none !important; }
++
++  /* Dark mode */
++  html.dark body { background: #101410; color: #e5e9e2; }
++  html.dark .bg-white { background-color: #1b211c !important; }
++  html.dark .bg-gray-50 { background-color: #222922 !important; }
++  html.dark .text-gray-600, html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
++  html.dark .border-gray-100 { border-color: #2e382e !important; }
++  html.dark .border, html.dark .border-t, html.dark .border-b { border-color: #3a423a !important; }
++  html.dark table tbody tr { border-color: #3a423a !important; }
++
++  /* Nav */
++  .nav-btn { color: #9ca3af; transition: color 0.15s; }
++  .nav-btn.active { color: #0d631b; }
++  html.dark .nav-btn { color: #6b7280; }
++  html.dark .nav-btn.active { color: #4ade80; }
++
++  /* Settings toggles */
++  .theme-option.active, .lang-option.active {
++    background-color: #0d631b;
++    color: #fff;
++    border-color: #0d631b;
++  }
++
++  /* Sensor buttons */
++  .sensor-btn { transition: background-color 0.15s, color 0.15s; }
++  .sensor-btn.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
++</style>
+ </head>
+-<body class="min-h-screen pb-20">
+-<header class="sticky top-0 bg-white border-b px-4 py-4 flex items-center gap-2 shadow-sm z-10">
+-<span class="material-symbols-outlined text-[#0d631b]" style="font-variation-settings:'FILL' 1;">potted_plant</span>
+-<h1 class="font-bold text-lg text-[#0d631b]">Aking Bukid / My Farm</h1>
++<body class="min-h-screen" style="padding-bottom:72px">
++
++<!-- ===== TOP HEADER ===== -->
++<header class="sticky top-0 bg-white border-b border-gray-100 shadow-sm z-10 px-4 py-3 flex items-center gap-3">
++  <div class="w-9 h-9 rounded-xl bg-[#0d631b] flex items-center justify-center flex-shrink-0">
++    <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;">eco</span>
++  </div>
++  <div class="flex-1 min-w-0">
++    <p class="font-bold text-[#0d631b] text-sm leading-tight">Aking Bukid</p>
++    <p class="text-xs text-gray-500 truncate" id="headerFarmerName">—</p>
++  </div>
++  <button id="langToggle" type="button" class="text-xs font-bold border border-gray-300 rounded-lg px-3 py-1.5 text-gray-600 hover:border-[#0d631b] hover:text-[#0d631b] transition-colors">
++    EN
++  </button>
+ </header>
+ 
+-<div class="p-4 max-w-md mx-auto space-y-4">
+-
+-<!-- Dashboard tab -->
+-<div id="tabDashboard">
+-<div class="bg-white rounded-xl p-4 shadow-sm border mb-4" id="searchCard">
+-<label class="block text-sm font-medium text-gray-600 mb-2">Pangalan ng Bukid / Your Farm Name</label>
+-<div class="flex gap-2">
+-<input class="flex-1 border rounded-lg px-3 py-2" id="farmNameInput" placeholder="e.g. dela-cruz-farm" type="text">
+-<button class="bg-[#0d631b] text-white px-4 py-2 rounded-lg font-bold" id="farmSearchBtn">Hanapin</button>
+-</div>
+-<p class="text-xs text-red-600 mt-2 hidden" id="farmSearchError">Farm not found.</p>
+-</div>
+-
+-<div class="hidden bg-white rounded-xl p-5 shadow-sm border-l-4 border-blue-600 mb-4" id="farmPredictCard">
+-<p class="text-xs uppercase font-bold text-blue-700 mb-2">Rekomendasyon para sa Buong Bukid / Whole-Farm Recommendation</p>
+-<div class="flex items-center gap-3">
+-<span class="material-symbols-outlined text-4xl text-blue-700" style="font-variation-settings:'FILL' 1;">grass</span>
+-<div>
+-<p class="text-2xl font-bold" id="farmPredictCrop">-</p>
+-<p class="text-sm text-gray-500" id="farmPredictConfidence">-</p>
+-</div>
+-</div>
+-<p class="text-xs text-gray-400 mt-2" id="farmPredictSensorCount"></p>
+-</div>
+-
+-<div class="hidden bg-white rounded-xl p-4 shadow-sm border" id="dashSummaryCard">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Buod ng Bukid / Farm Summary</p>
+-<div class="grid grid-cols-2 gap-3 text-sm">
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">May Reading / With Reading</p><p class="text-lg font-bold text-[#0d631b]" id="dashWithReading">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Walang Reading / No Reading</p><p class="text-lg font-bold text-gray-400" id="dashNoReading">-</p></div>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Sensors tab -->
+-<div class="hidden" id="tabSensors">
+-<div class="bg-white rounded-xl p-4 shadow-sm border mb-4" id="sensorListCard">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Mga Sensor / Sensors</p>
+-<div class="flex flex-wrap gap-2" id="sensorList"></div>
+-<p class="text-xs text-gray-400 mt-3 hidden" id="noSensorListMsg">Maghanap muna ng bukid sa Dashboard / Search a farm in Dashboard first.</p>
+-</div>
+-
+-<div class="hidden space-y-4" id="result">
+-<div class="bg-white rounded-xl p-4 shadow-sm border">
+-<p class="text-sm text-gray-500" id="resOwner">-</p>
+-<p class="text-lg font-bold" id="resPlotId">-</p>
+-<p class="text-xs text-gray-500 mt-1" id="resCoords">-</p>
+-</div>
+-
+-<div class="bg-white rounded-xl p-5 shadow-sm border-l-4 border-[#0d631b]">
+-<p class="text-xs uppercase font-bold text-[#0d631b] mb-2">Rekomendasyon / Recommendation</p>
+-<div class="flex items-center gap-3">
+-<span class="material-symbols-outlined text-4xl text-[#0d631b]" style="font-variation-settings:'FILL' 1;">agriculture</span>
+-<div>
+-<p class="text-2xl font-bold" id="resCrop">-</p>
+-<p class="text-sm text-gray-500" id="resConfidence">-</p>
+-</div>
+-</div>
+-<p class="text-sm text-gray-500 mt-3" id="resMessage"></p>
+-<button class="mt-3 text-sm font-bold text-[#0d631b] underline hidden" id="explainBtn">Bakit? / Why?</button>
+-<p class="text-sm text-gray-500 mt-2 italic" id="explainText"></p>
+-</div>
+-
+-<div class="bg-white rounded-xl p-5 shadow-sm border">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Pagbasa ng Sensor / Sensor Readings</p>
+-<div class="grid grid-cols-2 gap-3 text-sm" id="readingsGrid">
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">N</p><p class="text-lg font-bold text-[#0d631b]" id="rN">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">P</p><p class="text-lg font-bold text-[#0d631b]" id="rP">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">K</p><p class="text-lg font-bold text-[#0d631b]" id="rK">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">pH</p><p class="text-lg font-bold text-[#0d631b]" id="rPh">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Temp</p><p class="text-lg font-bold" id="rTemp">-</p></div>
+-<div class="bg-gray-50 rounded-lg p-3"><p class="text-[10px] font-bold text-gray-500">Moisture</p><p class="text-lg font-bold" id="rMoisture">-</p></div>
+-</div>
+-<p class="text-xs text-gray-400 mt-3" id="resTimestamp"></p>
+-</div>
+-
+-<div class="bg-white rounded-xl p-5 shadow-sm border">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Kasaysayan / History</p>
+-<table class="w-full text-left text-sm">
+-<thead class="text-gray-400 text-xs"><tr><th class="py-1">Petsa</th><th class="py-1">pH</th><th class="py-1">Temp</th><th class="py-1">Pananim</th></tr></thead>
+-<tbody id="historyBody"></tbody>
+-</table>
+-</div>
+-</div>
+-</div>
+-
+-<!-- Settings tab -->
+-<div class="hidden" id="tabSettings">
+-<div class="bg-white rounded-xl p-4 shadow-sm border mb-4">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Tema / Theme</p>
+-<div class="flex gap-2">
+-<button class="theme-option flex-1 py-2.5 rounded-lg border font-semibold" data-theme="light" type="button">Light</button>
+-<button class="theme-option flex-1 py-2.5 rounded-lg border font-semibold" data-theme="dark" type="button">Dark</button>
+-</div>
+-</div>
+-<div class="bg-white rounded-xl p-4 shadow-sm border">
+-<p class="text-xs uppercase font-bold text-gray-500 mb-3">Wika / Language</p>
+-<div class="flex gap-2">
+-<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="both" type="button">Both</button>
+-<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="fil" type="button">Tagalog</button>
+-<button class="lang-option flex-1 py-2.5 rounded-lg border font-semibold" data-lang="en" type="button">English</button>
+-</div>
+-</div>
+-</div>
+-
+-</div>
+-
+-<nav class="fixed bottom-0 left-0 w-full bg-white border-t flex justify-around py-2 z-10">
+-<button class="nav-btn active flex flex-col items-center gap-1 px-4 py-1" data-tab="tabDashboard" type="button">
+-<span class="material-symbols-outlined">dashboard</span>
+-<span class="text-[11px] font-semibold">Dashboard</span>
+-</button>
+-<button class="nav-btn flex flex-col items-center gap-1 px-4 py-1" data-tab="tabSensors" type="button">
+-<span class="material-symbols-outlined">sensors</span>
+-<span class="text-[11px] font-semibold">Sensors</span>
+-</button>
+-<button class="nav-btn flex flex-col items-center gap-1 px-4 py-1" data-tab="tabSettings" type="button">
+-<span class="material-symbols-outlined">settings</span>
+-<span class="text-[11px] font-semibold">Settings</span>
+-</button>
++<!-- ===== CONTENT AREA ===== -->
++<div class="max-w-md mx-auto px-4 pt-4 space-y-0">
++
++  <!-- ─── Tab 1: My Farms ─── -->
++  <div id="tabMyFarms">
++    <h2 class="text-base font-bold mb-3" data-fil="Aking mga Bukid" data-en="My Farms">Aking mga Bukid</h2>
++    <div id="farmCardList" class="space-y-3">
++      <!-- farm cards injected here -->
++    </div>
++  </div>
++
++  <!-- ─── Tab 2: Sensors ─── -->
++  <div id="tabSensors" class="hidden">
++    <!-- Farm selector -->
++    <div class="mb-4">
++      <label class="text-xs font-bold text-gray-500 uppercase mb-1 block" data-fil="Piliin ang Bukid" data-en="Select Farm">Piliin ang Bukid</label>
++      <select id="sensorFarmSelect" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#0d631b]">
++      </select>
++    </div>
++
++    <!-- Recommendation card -->
++    <div id="sensorRecCard" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
++      <p class="text-xs font-bold uppercase text-[#0d631b] mb-2" data-fil="Rekomendasyon" data-en="Recommendation">Rekomendasyon</p>
++      <div class="flex items-center gap-3 mb-2">
++        <span class="material-symbols-outlined text-3xl text-[#0d631b]" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;">agriculture</span>
++        <div>
++          <p class="text-xl font-bold" id="sensorRecCrop">—</p>
++          <p class="text-sm text-gray-500" id="sensorRecConf">—</p>
++        </div>
++      </div>
++      <button id="sensorExplainBtn" type="button" class="text-sm font-bold text-[#0d631b] underline hidden" data-fil="Bakit?" data-en="Why?">Bakit?</button>
++      <p id="sensorExplainText" class="text-sm text-gray-500 italic mt-2"></p>
++    </div>
++
++    <!-- Sensor list buttons -->
++    <div id="sensorBtnWrap" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Mga Sensor" data-en="Sensors">Mga Sensor</p>
++      <div id="sensorBtnList" class="flex flex-wrap gap-2"></div>
++    </div>
++
++    <!-- Readings grid -->
++    <div id="sensorReadingsWrap" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Pagbasa ng Sensor" data-en="Sensor Readings">Pagbasa ng Sensor</p>
++      <div class="grid grid-cols-3 gap-2 text-sm">
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">N</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rN">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">P</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rP">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">K</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rK">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400">pH</p>
++          <p class="text-lg font-bold text-[#0d631b]" id="rPh">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400" data-fil="Temp" data-en="Temp">Temp</p>
++          <p class="text-lg font-bold" id="rTemp">—</p>
++        </div>
++        <div class="bg-gray-50 rounded-xl p-3">
++          <p class="text-[10px] font-bold text-gray-400" data-fil="Ulan" data-en="Rain">Ulan</p>
++          <p class="text-lg font-bold" id="rRain">—</p>
++        </div>
++      </div>
++      <p class="text-xs text-gray-400 mt-3" id="sensorTimestamp"></p>
++    </div>
++  </div>
++
++  <!-- ─── Tab 3: History ─── -->
++  <div id="tabHistory" class="hidden">
++    <div class="mb-4">
++      <label class="text-xs font-bold text-gray-500 uppercase mb-1 block" data-fil="Piliin ang Bukid" data-en="Select Farm">Piliin ang Bukid</label>
++      <select id="historyFarmSelect" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#0d631b]">
++      </select>
++    </div>
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
++      <table class="w-full text-left text-sm">
++        <thead class="bg-gray-50">
++          <tr>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500" data-fil="Petsa" data-en="Date">Petsa</th>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500">pH</th>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500" data-fil="Temp" data-en="Temp">Temp</th>
++            <th class="py-2 px-4 text-xs font-bold text-gray-500" data-fil="Pananim" data-en="Crop">Pananim</th>
++          </tr>
++        </thead>
++        <tbody id="historyBody">
++          <tr><td colspan="4" class="py-6 text-center text-sm text-gray-400" data-fil="Pumili ng bukid upang makita ang kasaysayan." data-en="Select a farm to view history.">Pumili ng bukid upang makita ang kasaysayan.</td></tr>
++        </tbody>
++      </table>
++    </div>
++  </div>
++
++  <!-- ─── Tab 4: Settings ─── -->
++  <div id="tabSettings" class="hidden space-y-4">
++    <!-- Language -->
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Wika" data-en="Language">Wika</p>
++      <div class="flex gap-2">
++        <button class="lang-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-lang="fil" type="button" data-fil="Tagalog" data-en="Tagalog">Tagalog</button>
++        <button class="lang-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-lang="en" type="button" data-fil="Ingles" data-en="English">Ingles</button>
++      </div>
++    </div>
++    <!-- Theme -->
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
++      <p class="text-xs font-bold uppercase text-gray-500 mb-3" data-fil="Tema" data-en="Theme">Tema</p>
++      <div class="flex gap-2">
++        <button class="theme-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-theme="light" type="button" data-fil="Maliwanag" data-en="Light">Maliwanag</button>
++        <button class="theme-option flex-1 py-2.5 rounded-xl border font-semibold text-sm transition-colors" data-theme="dark" type="button" data-fil="Madilim" data-en="Dark">Madilim</button>
++      </div>
++    </div>
++    <!-- Logout -->
++    <button id="logoutBtn" type="button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-2xl transition-colors text-sm" data-fil="Mag-logout" data-en="Log Out">Mag-logout</button>
++  </div>
++
++</div><!-- end content -->
++
++<!-- ===== BOTTOM NAV ===== -->
++<nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 flex justify-around py-2 z-10">
++  <button class="nav-btn active flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabMyFarms" type="button">
++    <span class="material-symbols-outlined text-xl">home</span>
++    <span class="text-[11px] font-semibold" data-fil="Bukid" data-en="Farms">Bukid</span>
++  </button>
++  <button class="nav-btn flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabSensors" type="button">
++    <span class="material-symbols-outlined text-xl">sensors</span>
++    <span class="text-[11px] font-semibold" data-fil="Sensor" data-en="Sensors">Sensor</span>
++  </button>
++  <button class="nav-btn flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabHistory" type="button">
++    <span class="material-symbols-outlined text-xl">history</span>
++    <span class="text-[11px] font-semibold" data-fil="Kasaysayan" data-en="History">Kasaysayan</span>
++  </button>
++  <button class="nav-btn flex flex-col items-center gap-0.5 px-4 py-1" data-tab="tabSettings" type="button">
++    <span class="material-symbols-outlined text-xl">settings</span>
++    <span class="text-[11px] font-semibold" data-fil="Setting" data-en="Settings">Setting</span>
++  </button>
+ </nav>
+ 
+ <script>
+-        const API = ""; // ponytail: relative — frontend is now served by the same FastAPI process
+-        // ponytail: read-only farmer view, no password — typing your farm name or plot ID is the "login".
+-        // Fine for a single-cooperative demo; add real per-farmer auth if this goes multi-tenant.
+-        let currentReadingId = null;
+-        let currentFarm = null;
+-
+-        // --- Tab navigation ---
+-        function setTab(tabId) {
+-            document.querySelectorAll("[id^='tab']").forEach(el => el.classList.toggle("hidden", el.id !== tabId));
+-            document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+-        }
+-        document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
+-
+-        async function lookup(plotId) {
+-            document.getElementById("farmSearchError").classList.add("hidden");
+-            document.getElementById("result").classList.add("hidden");
+-            const res = await fetch(`${API}/readings/${encodeURIComponent(plotId)}`);
+-            const readings = await res.json();
+-            if (!readings.length) {
+-                document.getElementById("farmSearchError").classList.remove("hidden");
+-                return;
+-            }
+-            render(readings);
+-        }
+-
+-        async function lookupFarm(farmName) {
+-            document.getElementById("farmSearchError").classList.add("hidden");
+-            document.getElementById("result").classList.add("hidden");
+-            document.getElementById("sensorListCard").classList.add("hidden");
+-            document.getElementById("farmPredictCard").classList.add("hidden");
+-            document.getElementById("dashSummaryCard").classList.add("hidden");
+-            const res = await fetch(`${API}/farms/by-name/${encodeURIComponent(farmName)}`);
+-            if (!res.ok) {
+-                document.getElementById("farmSearchError").classList.remove("hidden");
+-                return;
+-            }
+-            const farm = await res.json();
+-            if (!farm.sensors.length) {
+-                document.getElementById("farmSearchError").textContent = "This farm has no sensors yet.";
+-                document.getElementById("farmSearchError").classList.remove("hidden");
+-                return;
+-            }
+-            currentFarm = farm;
+-            document.getElementById("noSensorListMsg").classList.add("hidden");
+-
+-            const withReading = farm.sensors.filter(s => s.soil_n !== null && s.soil_n !== undefined);
+-            const noReading = farm.sensors.length - withReading.length;
+-            document.getElementById("dashWithReading").textContent = withReading.length;
+-            document.getElementById("dashNoReading").textContent = noReading;
+-            document.getElementById("dashSummaryCard").classList.remove("hidden");
+-
+-            const list = document.getElementById("sensorList");
+-            list.innerHTML = "";
+-            farm.sensors.forEach((s, i) => {
+-                const hasReading = s.soil_n !== null && s.soil_n !== undefined;
+-                const btn = document.createElement("button");
+-                btn.className = "border rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2 transition-colors " +
+-                    (hasReading ? "text-[#0d631b] border-[#0d631b] hover:bg-[#0d631b] hover:text-white" : "text-gray-400 border-gray-300 hover:bg-gray-100");
+-                btn.innerHTML = `<span class="inline-block w-2 h-2 rounded-full" style="background:${hasReading ? "#2e7d32" : "#9ca3af"}"></span>Sensor ${i + 1}`;
+-                btn.addEventListener("click", () => { lookup(s.plot_id); setTab("tabSensors"); });
+-                list.appendChild(btn);
+-            });
+-            document.getElementById("sensorListCard").classList.remove("hidden");
+-            lookup(farm.sensors[0].plot_id);
+-            predictFarm(farm.farm_id);
+-        }
+-
+-        async function predictFarm(farmId) {
+-            const card = document.getElementById("farmPredictCard");
+-            try {
+-                const res = await fetch(`${API}/farms/${farmId}/predict`);
+-                if (!res.ok) { card.classList.add("hidden"); return; }
+-                const data = await res.json();
+-                document.getElementById("farmPredictCrop").textContent = data.crop || "Walang katugma";
+-                document.getElementById("farmPredictConfidence").textContent = data.crop ? `${Math.round(data.confidence * 100)}% confidence` : (data.message || "-");
+-                document.getElementById("farmPredictSensorCount").textContent = `Based on ${data.sensor_count} sensor(s) with readings`;
+-                card.classList.remove("hidden");
+-            } catch {
+-                card.classList.add("hidden");
+-            }
+-        }
+-
+-        function render(readings) {
+-            const head = readings[0];
+-            const latest = readings.find(r => r.soil_n !== null) || null;
+-            currentReadingId = latest ? latest.id : null;
+-
+-            document.getElementById("resOwner").textContent = head.owner_name || "-";
+-            document.getElementById("resPlotId").textContent = head.plot_id;
+-            document.getElementById("resCoords").textContent = `${head.lat.toFixed(4)}° N, ${head.lng.toFixed(4)}° E`;
+-
+-            const explainBtn = document.getElementById("explainBtn");
+-            document.getElementById("explainText").textContent = "";
+-            explainBtn.textContent = "Bakit? / Why?";
+-
+-            if (latest && latest.predicted_crop) {
+-                document.getElementById("resCrop").textContent = latest.predicted_crop;
+-                document.getElementById("resConfidence").textContent = `${Math.round(latest.confidence * 100)}% confidence`;
+-                document.getElementById("resMessage").textContent = "";
+-                explainBtn.classList.remove("hidden");
+-            } else if (latest) {
+-                document.getElementById("resCrop").textContent = "Walang katugma";
+-                document.getElementById("resConfidence").textContent = "-";
+-                document.getElementById("resMessage").textContent = latest.message || "No confident match for this reading.";
+-                explainBtn.classList.add("hidden");
+-            } else {
+-                document.getElementById("resCrop").textContent = "Wala pang datos";
+-                document.getElementById("resConfidence").textContent = "-";
+-                document.getElementById("resMessage").textContent = "No readings yet for this plot.";
+-                explainBtn.classList.add("hidden");
+-            }
+-
+-            document.getElementById("rN").textContent = latest ? latest.soil_n : "-";
+-            document.getElementById("rP").textContent = latest ? latest.soil_p : "-";
+-            document.getElementById("rK").textContent = latest ? latest.soil_k : "-";
+-            document.getElementById("rPh").textContent = latest ? latest.soil_ph : "-";
+-            document.getElementById("rTemp").textContent = latest ? `${latest.air_temp_c}°C` : "-";
+-            document.getElementById("rMoisture").textContent = latest && latest.soil_moisture_pct != null ? `${latest.soil_moisture_pct}%` : "-";
+-            document.getElementById("resTimestamp").textContent = latest ? `Updated: ${new Date(latest.timestamp).toLocaleString()}` : "";
+-
+-            const body = document.getElementById("historyBody");
+-            body.innerHTML = "";
+-            for (const r of readings.filter(r => r.soil_n !== null).slice(0, 5)) {
+-                const tr = document.createElement("tr");
+-                tr.className = "border-t";
+-                tr.innerHTML = `<td class="py-1">${new Date(r.timestamp).toLocaleDateString()}</td><td class="py-1">${r.soil_ph}</td><td class="py-1">${r.air_temp_c}°C</td><td class="py-1">${r.predicted_crop || "-"}</td>`;
+-                body.appendChild(tr);
+-            }
+-
+-            document.getElementById("result").classList.remove("hidden");
+-        }
+-
+-        document.getElementById("explainBtn").addEventListener("click", async (e) => {
+-            if (!currentReadingId) return;
+-            e.target.textContent = "Sandali lang...";
+-            e.target.disabled = true;
+-            try {
+-                const lang = localStorage.getItem("lang") === "both" ? "en" : (localStorage.getItem("lang") || "en");
+-                const res = await fetch(`${API}/readings/${currentReadingId}/explain?lang=${lang}`);
+-                const data = await res.json();
+-                document.getElementById("explainText").textContent = data.explanation || data.detail || "No explanation available.";
+-            } catch {
+-                document.getElementById("explainText").textContent = "Could not reach the offline AI model.";
+-            }
+-            e.target.textContent = "Bakit? / Why?";
+-            e.target.disabled = false;
+-        });
+-
+-        document.getElementById("farmSearchBtn").addEventListener("click", () => {
+-            const farmName = document.getElementById("farmNameInput").value.trim();
+-            if (farmName) lookupFarm(farmName);
+-        });
+-        document.getElementById("farmNameInput").addEventListener("keydown", (e) => {
+-            if (e.key === "Enter") document.getElementById("farmSearchBtn").click();
+-        });
+-
+-        // --- Settings: theme + language ---
+-        function applyLanguage(pref) {
+-            // ponytail: bilingual labels in this file are plain "Tagalog / English" text,
+-            // not separated spans like dashboard.html — so language pref only affects future additions.
+-            localStorage.setItem("lang", pref);
+-        }
+-        function applyTheme(theme) {
+-            document.documentElement.classList.toggle("dark", theme === "dark");
+-        }
+-        const savedTheme = localStorage.getItem("theme") || "light";
+-        const savedLang = localStorage.getItem("lang") || "both";
+-        applyTheme(savedTheme);
+-        document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === savedTheme));
+-        document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === savedLang));
+-        document.querySelectorAll(".theme-option").forEach(btn => btn.addEventListener("click", () => {
+-            localStorage.setItem("theme", btn.dataset.theme);
+-            applyTheme(btn.dataset.theme);
+-            document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b === btn));
+-        }));
+-        document.querySelectorAll(".lang-option").forEach(btn => btn.addEventListener("click", () => {
+-            applyLanguage(btn.dataset.lang);
+-            document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b === btn));
+-        }));
+-
+-        const params = new URLSearchParams(location.search);
+-        const urlFarm = params.get("farm");
+-        const urlPlot = params.get("plot");
+-        if (urlFarm) {
+-            document.getElementById("farmNameInput").value = urlFarm;
+-            lookupFarm(urlFarm);
+-        } else if (urlPlot) {
+-            lookup(urlPlot);
+-            setTab("tabSensors");
+-        } else {
+-            document.getElementById("noSensorListMsg").classList.remove("hidden");
+-        }
+-    </script>
+-</body></html>
++// ===== CONSTANTS =====
++const API = "";
++const CROP_FIL = {
++  rice:"palay", maize:"mais", chickpea:"garbanzos", kidneybeans:"habichuelas",
++  pigeonpeas:"kadyos", mothbeans:"paayap", mungbean:"monggo", blackgram:"itim na munggo",
++  lentil:"lentil", pomegranate:"granada", banana:"saging", mango:"mangga",
++  grapes:"ubas", watermelon:"pakwan", muskmelon:"melon", apple:"mansanas",
++  orange:"dalandan", papaya:"papaya", coconut:"niyog", cotton:"bulak",
++  jute:"yute", coffee:"kape",
++};
++
++// ===== STATE =====
++let lang = localStorage.getItem("lang") || "fil";
++let currentSensorFarmId = null;
++let currentSensorEn = null; // for explain button
++
++// ===== LANGUAGE HELPERS =====
++function cropLabel(en) {
++  if (!en) return "—";
++  const fil = CROP_FIL[en.toLowerCase()] || en;
++  return lang === "en" ? en : fil;
++}
++
++function applyLanguage(pref) {
++  lang = pref;
++  localStorage.setItem("lang", pref);
++  document.querySelectorAll("[data-fil]").forEach(el => {
++    // skip inputs / selects
++    if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "OPTION") return;
++    el.textContent = pref === "en" ? (el.dataset.en || el.dataset.fil) : el.dataset.fil;
++  });
++  // Update lang toggle
++  const toggle = document.getElementById("langToggle");
++  toggle.textContent = pref === "fil" ? "EN" : "FIL";
++  // Update active states in Settings
++  document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === pref));
++  // Refresh any displayed crop labels
++  if (currentSensorEn) {
++    document.getElementById("sensorRecCrop").textContent = cropLabel(currentSensorEn);
++  }
++}
++
++// ===== THEME =====
++function applyTheme(theme) {
++  document.documentElement.classList.toggle("dark", theme === "dark");
++  localStorage.setItem("theme", theme);
++  document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === theme));
++}
++
++// ===== TAB NAVIGATION =====
++const ALL_TABS = ["tabMyFarms", "tabSensors", "tabHistory", "tabSettings"];
++
++function setTab(tabId) {
++  ALL_TABS.forEach(id => {
++    document.getElementById(id).classList.toggle("hidden", id !== tabId);
++  });
++  document.querySelectorAll(".nav-btn").forEach(b => {
++    b.classList.toggle("active", b.dataset.tab === tabId);
++  });
++}
++
++document.querySelectorAll(".nav-btn").forEach(btn => {
++  btn.addEventListener("click", () => setTab(btn.dataset.tab));
++});
++
++// ===== LOAD MY FARMS =====
++async function loadMyFarms() {
++  const container = document.getElementById("farmCardList");
++  container.innerHTML = "";
++  for (const farm of farmerAuth.farms) {
++    const card = buildFarmCardSkeleton(farm);
++    container.appendChild(card);
++    fetchFarmPredict(farm);
++  }
++}
++
++function buildFarmCardSkeleton(farm) {
++  const card = document.createElement("div");
++  card.className = "bg-white rounded-2xl shadow-sm border border-gray-100 p-4 cursor-pointer active:scale-[0.98] transition-transform";
++  card.setAttribute("data-farm-id", farm.farm_id);
++
++  const inner = document.createElement("div");
++  inner.className = "flex items-start gap-3";
++
++  const iconWrap = document.createElement("div");
++  iconWrap.className = "w-10 h-10 rounded-xl bg-[#e8f5e9] flex items-center justify-center flex-shrink-0";
++  const icon = document.createElement("span");
++  icon.className = "material-symbols-outlined text-[#0d631b]";
++  icon.style.fontVariationSettings = "'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24";
++  icon.textContent = "yard";
++  iconWrap.appendChild(icon);
++
++  const info = document.createElement("div");
++  info.className = "flex-1 min-w-0";
++  const nameEl = document.createElement("p");
++  nameEl.className = "font-bold text-sm truncate";
++  nameEl.textContent = farm.farm_name;
++  const sensorCount = document.createElement("p");
++  sensorCount.className = "text-xs text-gray-400";
++  sensorCount.textContent = `${farm.sensors.length} sensor${farm.sensors.length !== 1 ? "s" : ""}`;
++  info.appendChild(nameEl);
++  info.appendChild(sensorCount);
++
++  const recWrap = document.createElement("div");
++  recWrap.className = "text-right flex-shrink-0";
++  const recLabel = document.createElement("p");
++  recLabel.className = "text-[10px] font-bold text-gray-400 uppercase mb-0.5";
++  recLabel.textContent = lang === "en" ? "Recommendation" : "Rekomendasyon";
++  const recCrop = document.createElement("p");
++  recCrop.className = "text-sm font-bold text-[#0d631b]";
++  recCrop.id = `farmRec_${farm.farm_id}`;
++  recCrop.textContent = "…";
++  const recConf = document.createElement("p");
++  recConf.className = "text-xs text-gray-400";
++  recConf.id = `farmConf_${farm.farm_id}`;
++  recWrap.appendChild(recLabel);
++  recWrap.appendChild(recCrop);
++  recWrap.appendChild(recConf);
++
++  inner.appendChild(iconWrap);
++  inner.appendChild(info);
++  inner.appendChild(recWrap);
++  card.appendChild(inner);
++
++  // Click: switch to sensors tab
++  card.addEventListener("click", () => {
++    setTab("tabSensors");
++    const sel = document.getElementById("sensorFarmSelect");
++    sel.value = farm.farm_id;
++    loadSensors(farm.farm_id);
++  });
++
++  return card;
++}
++
++async function fetchFarmPredict(farm) {
++  try {
++    const res = await fetch(`${API}/farms/${encodeURIComponent(farm.farm_id)}/predict`);
++    if (!res.ok) return;
++    const data = await res.json();
++    const cropEl = document.getElementById(`farmRec_${farm.farm_id}`);
++    const confEl = document.getElementById(`farmConf_${farm.farm_id}`);
++    if (!cropEl) return;
++    if (data.crop) {
++      cropEl.textContent = cropLabel(data.crop);
++      cropEl.setAttribute("data-crop-en", data.crop);
++      if (confEl) confEl.textContent = `${Math.round((data.confidence || 0) * 100)}%`;
++    } else {
++      cropEl.textContent = lang === "en" ? "No match" : "Walang katugma";
++      if (confEl) confEl.textContent = "";
++    }
++  } catch {
++    // silently ignore network errors on cards
++  }
++}
++
++// ===== LOAD SENSORS TAB =====
++async function loadSensors(farmId) {
++  currentSensorFarmId = farmId;
++  currentSensorEn = null;
++
++  // Reset UI
++  document.getElementById("sensorRecCard").classList.add("hidden");
++  document.getElementById("sensorBtnWrap").classList.add("hidden");
++  document.getElementById("sensorReadingsWrap").classList.add("hidden");
++  document.getElementById("sensorExplainText").textContent = "";
++  document.getElementById("sensorExplainBtn").classList.add("hidden");
++  document.getElementById("sensorBtnList").innerHTML = "";
++  clearReadings();
++
++  const farm = farmerAuth.farms.find(f => f.farm_id === farmId);
++  if (!farm) return;
++
++  // Fetch predict
++  try {
++    const res = await fetch(`${API}/farms/${encodeURIComponent(farmId)}/predict`);
++    if (res.ok) {
++      const data = await res.json();
++      currentSensorEn = data.crop || null;
++      const recCard = document.getElementById("sensorRecCard");
++      document.getElementById("sensorRecCrop").textContent = data.crop ? cropLabel(data.crop) : (lang === "en" ? "No match" : "Walang katugma");
++      document.getElementById("sensorRecConf").textContent = data.crop ? `${Math.round((data.confidence || 0) * 100)}% confidence` : "";
++      if (data.crop) {
++        document.getElementById("sensorExplainBtn").classList.remove("hidden");
++      }
++      recCard.classList.remove("hidden");
++    }
++  } catch { /* ignore */ }
++
++  // Build sensor buttons
++  if (farm.sensors.length) {
++    const btnList = document.getElementById("sensorBtnList");
++    farm.sensors.forEach((sensor, i) => {
++      const hasReading = sensor.soil_n !== null && sensor.soil_n !== undefined;
++      const btn = document.createElement("button");
++      btn.type = "button";
++      btn.className = "sensor-btn border rounded-xl px-3 py-2 text-sm font-bold flex items-center gap-2 " +
++        (hasReading
++          ? "text-[#0d631b] border-[#0d631b]"
++          : "text-gray-400 border-gray-300");
++      const dot = document.createElement("span");
++      dot.className = "inline-block w-2 h-2 rounded-full";
++      dot.style.background = hasReading ? "#0d631b" : "#9ca3af";
++      btn.appendChild(dot);
++      btn.appendChild(document.createTextNode(`Sensor ${i + 1}`));
++      btn.addEventListener("click", () => {
++        document.querySelectorAll(".sensor-btn").forEach(b => b.classList.remove("active"));
++        btn.classList.add("active");
++        showReading(sensor);
++      });
++      btnList.appendChild(btn);
++    });
++    document.getElementById("sensorBtnWrap").classList.remove("hidden");
++
++    // Auto-show first sensor with reading
++    const first = farm.sensors.find(s => s.soil_n !== null && s.soil_n !== undefined) || farm.sensors[0];
++    if (first) {
++      const firstBtn = btnList.children[farm.sensors.indexOf(first)];
++      if (firstBtn) firstBtn.classList.add("active");
++      showReading(first);
++    }
++  }
++}
++
++function clearReadings() {
++  ["rN","rP","rK","rPh","rTemp","rRain"].forEach(id => {
++    document.getElementById(id).textContent = "—";
++  });
++  document.getElementById("sensorTimestamp").textContent = "";
++}
++
++function showReading(sensor) {
++  const wrap = document.getElementById("sensorReadingsWrap");
++  if (!sensor || (sensor.soil_n === null || sensor.soil_n === undefined)) {
++    clearReadings();
++    wrap.classList.remove("hidden");
++    return;
++  }
++  document.getElementById("rN").textContent = sensor.soil_n ?? "—";
++  document.getElementById("rP").textContent = sensor.soil_p ?? "—";
++  document.getElementById("rK").textContent = sensor.soil_k ?? "—";
++  document.getElementById("rPh").textContent = sensor.soil_ph ?? "—";
++  document.getElementById("rTemp").textContent = sensor.air_temp_c != null ? `${sensor.air_temp_c}°C` : "—";
++  document.getElementById("rRain").textContent = sensor.rainfall_mm != null ? `${sensor.rainfall_mm}mm` : "—";
++  if (sensor.timestamp) {
++    document.getElementById("sensorTimestamp").textContent = `Updated: ${new Date(sensor.timestamp).toLocaleString()}`;
++  }
++  wrap.classList.remove("hidden");
++}
++
++// ===== EXPLAIN BUTTON (Sensors tab) =====
++document.getElementById("sensorExplainBtn").addEventListener("click", async function () {
++  if (!currentSensorFarmId) return;
++  const btn = this;
++  btn.textContent = lang === "en" ? "Thinking..." : "Sandali lang...";
++  btn.disabled = true;
++  document.getElementById("sensorExplainText").textContent = "";
++  try {
++    const res = await fetch(`${API}/farms/${encodeURIComponent(currentSensorFarmId)}/explain?lang=${lang}`);
++    const data = await res.json();
++    document.getElementById("sensorExplainText").textContent = data.explanation || data.detail || (lang === "en" ? "No explanation available." : "Walang paliwanag.");
++  } catch {
++    document.getElementById("sensorExplainText").textContent = lang === "en" ? "Could not reach the AI model." : "Hindi maabot ang AI model.";
++  }
++  btn.textContent = lang === "en" ? (btn.dataset.en || "Why?") : (btn.dataset.fil || "Bakit?");
++  btn.disabled = false;
++});
++
++// ===== LOAD HISTORY TAB =====
++async function loadHistory(farmId) {
++  const body = document.getElementById("historyBody");
++  body.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-sm text-gray-400">${lang === "en" ? "Loading..." : "Naglo-load..."}</td></tr>`;
++  const farm = farmerAuth.farms.find(f => f.farm_id === farmId);
++  if (!farm || !farm.sensors.length) {
++    body.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-sm text-gray-400">${lang === "en" ? "No sensors." : "Walang sensor."}</td></tr>`;
++    return;
++  }
++  // Fetch readings for each sensor and collect all rows
++  const rows = [];
++  await Promise.all(farm.sensors.map(async sensor => {
++    try {
++      const res = await fetch(`${API}/readings/${encodeURIComponent(sensor.plot_id)}`);
++      if (!res.ok) return;
++      const readings = await res.json();
++      readings.filter(r => r.soil_n !== null && r.soil_n !== undefined).forEach(r => rows.push(r));
++    } catch { /* ignore */ }
++  }));
++
++  if (!rows.length) {
++    body.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-sm text-gray-400">${lang === "en" ? "No readings yet." : "Wala pang datos."}</td></tr>`;
++    return;
++  }
++
++  // Sort descending by timestamp
++  rows.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
++
++  body.innerHTML = "";
++  for (const r of rows.slice(0, 20)) {
++    const tr = document.createElement("tr");
++    tr.className = "border-t border-gray-100";
++    const date = document.createElement("td");
++    date.className = "py-2 px-4 text-xs text-gray-600";
++    date.textContent = new Date(r.timestamp).toLocaleDateString();
++    const ph = document.createElement("td");
++    ph.className = "py-2 px-4 text-xs";
++    ph.textContent = r.soil_ph ?? "—";
++    const temp = document.createElement("td");
++    temp.className = "py-2 px-4 text-xs";
++    temp.textContent = r.air_temp_c != null ? `${r.air_temp_c}°C` : "—";
++    const crop = document.createElement("td");
++    crop.className = "py-2 px-4 text-xs font-medium text-[#0d631b]";
++    crop.textContent = r.predicted_crop ? cropLabel(r.predicted_crop) : "—";
++    tr.appendChild(date);
++    tr.appendChild(ph);
++    tr.appendChild(temp);
++    tr.appendChild(crop);
++    body.appendChild(tr);
++  }
++}
++
++// ===== FARM SELECTS =====
++function populateFarmSelects() {
++  ["sensorFarmSelect", "historyFarmSelect"].forEach(selectId => {
++    const sel = document.getElementById(selectId);
++    sel.innerHTML = "";
++    farmerAuth.farms.forEach(farm => {
++      const opt = document.createElement("option");
++      opt.value = farm.farm_id;
++      opt.textContent = farm.farm_name;
++      sel.appendChild(opt);
++    });
++  });
++}
++
++document.getElementById("sensorFarmSelect").addEventListener("change", function () {
++  loadSensors(this.value);
++});
++
++document.getElementById("historyFarmSelect").addEventListener("change", function () {
++  loadHistory(this.value);
++});
++
++// History tab nav button — auto-load on first visit
++document.querySelectorAll(".nav-btn").forEach(btn => {
++  if (btn.dataset.tab === "tabHistory") {
++    btn.addEventListener("click", () => {
++      const sel = document.getElementById("historyFarmSelect");
++      if (sel.value) loadHistory(sel.value);
++    });
++  }
++  if (btn.dataset.tab === "tabSensors") {
++    btn.addEventListener("click", () => {
++      const sel = document.getElementById("sensorFarmSelect");
++      if (sel.value && !currentSensorFarmId) loadSensors(sel.value);
++    });
++  }
++});
++
++// ===== SETTINGS =====
++document.querySelectorAll(".lang-option").forEach(btn => {
++  btn.addEventListener("click", () => applyLanguage(btn.dataset.lang));
++});
++
++document.querySelectorAll(".theme-option").forEach(btn => {
++  btn.addEventListener("click", () => applyTheme(btn.dataset.theme));
++});
++
++document.getElementById("langToggle").addEventListener("click", () => {
++  applyLanguage(lang === "fil" ? "en" : "fil");
++});
++
++document.getElementById("logoutBtn").addEventListener("click", () => {
++  sessionStorage.removeItem("farmerAuth");
++  window.location.replace("/");
++});
++
++// ===== INIT =====
++(function init() {
++  // Farmer name in header
++  document.getElementById("headerFarmerName").textContent = farmerAuth.name || farmerAuth.id || "";
++
++  // Populate selects
++  populateFarmSelects();
++
++  // Apply saved theme & language
++  const savedTheme = localStorage.getItem("theme") || "light";
++  applyTheme(savedTheme);
++  applyLanguage(lang);
++
++  // Mark correct theme option active
++  document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === savedTheme));
++
++  // Load My Farms tab
++  loadMyFarms();
++
++  // Auto-load first farm in sensors
++  if (farmerAuth.farms.length) {
++    loadSensors(farmerAuth.farms[0].farm_id);
++  }
++})();
++</script>
++</body>
++</html>
+diff --git a/frontend/index.html b/frontend/index.html
+new file mode 100644
+index 0000000..8efb6e6
+--- /dev/null
++++ b/frontend/index.html
+@@ -0,0 +1,101 @@
++<!DOCTYPE html>
++<html lang="en"><head>
++<meta charset="utf-8"/>
++<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
++<title>Agri-Admin | Login</title>
++<script src="https://cdn.tailwindcss.com"></script>
++<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
++<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
++<style>
++  body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f7fbf0; }
++  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
++</style>
++</head>
++<body class="min-h-screen flex flex-col items-center justify-center p-4 gap-8">
++
++  <div class="text-center">
++    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0d631b] text-white mb-4 shadow-lg">
++      <span class="material-symbols-outlined text-4xl" style="font-variation-settings:'FILL' 1;">potted_plant</span>
++    </div>
++    <h1 class="text-3xl font-bold text-[#0d631b]">Agri-Admin</h1>
++    <p class="text-gray-500 mt-1 text-sm">Crop Recommendation System</p>
++  </div>
++
++  <div class="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
++
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
++      <div class="flex items-center gap-2 mb-1">
++        <span class="material-symbols-outlined text-[#0d631b]" style="font-variation-settings:'FILL' 1;">agriculture</span>
++        <h2 class="font-bold text-lg text-gray-800">Para sa Magsasaka</h2>
++      </div>
++      <p class="text-sm text-gray-500">I-type ang iyong pangalan para makita ang iyong mga bukid.</p>
++      <div class="space-y-3">
++        <input id="farmerNameInput" type="text" placeholder="Pangalan ng magsasaka"
++          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition"/>
++        <button id="farmerLoginBtn"
++          class="w-full bg-[#0d631b] text-white font-bold py-2.5 rounded-lg text-sm hover:bg-green-800 transition active:scale-95">
++          Mag-log in bilang Magsasaka
++        </button>
++        <p id="farmerError" class="text-xs text-red-500 hidden">Hindi nahanap ang magsasaka. Subukan muli.</p>
++      </div>
++    </div>
++
++    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
++      <div class="flex items-center gap-2 mb-1">
++        <span class="material-symbols-outlined text-[#0d631b]" style="font-variation-settings:'FILL' 1;">admin_panel_settings</span>
++        <h2 class="font-bold text-lg text-gray-800">Para sa Admin</h2>
++      </div>
++      <p class="text-sm text-gray-500">I-access ang buong dashboard ng sistema.</p>
++      <div class="space-y-3">
++        <input id="adminUser" type="text" placeholder="Username"
++          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition"/>
++        <input id="adminPass" type="password" placeholder="Password"
++          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition"/>
++        <button id="adminLoginBtn"
++          class="w-full border-2 border-[#0d631b] text-[#0d631b] font-bold py-2.5 rounded-lg text-sm hover:bg-[#0d631b] hover:text-white transition active:scale-95">
++          Mag-log in bilang Admin
++        </button>
++        <p id="adminError" class="text-xs text-red-500 hidden">Maling username o password.</p>
++      </div>
++    </div>
++  </div>
++
++<script>
++  async function farmerLogin() {
++    const name = document.getElementById("farmerNameInput").value.trim();
++    if (!name) return;
++    const err = document.getElementById("farmerError");
++    err.classList.add("hidden");
++    const btn = document.getElementById("farmerLoginBtn");
++    btn.textContent = "Sandali lang...";
++    btn.disabled = true;
++    try {
++      const res = await fetch(`/farmers/by-name/${encodeURIComponent(name)}`);
++      if (!res.ok) { err.classList.remove("hidden"); return; }
++      const farmer = await res.json();
++      sessionStorage.setItem("farmerAuth", JSON.stringify(farmer));
++      window.location.href = "/farmer.html";
++    } catch { err.classList.remove("hidden"); }
++    finally { btn.textContent = "Mag-log in bilang Magsasaka"; btn.disabled = false; }
++  }
++
++  function adminLogin() {
++    const u = document.getElementById("adminUser").value.trim();
++    const p = document.getElementById("adminPass").value;
++    const err = document.getElementById("adminError");
++    if (u === "admin" && p === "admin") {
++      sessionStorage.setItem("adminAuth", "1");
++      window.location.href = "/admin.html";
++    } else {
++      err.classList.remove("hidden");
++    }
++  }
++
++  document.getElementById("farmerLoginBtn").addEventListener("click", farmerLogin);
++  document.getElementById("farmerNameInput").addEventListener("keydown", e => { if (e.key === "Enter") farmerLogin(); });
++  document.getElementById("adminLoginBtn").addEventListener("click", adminLogin);
++  ["adminUser","adminPass"].forEach(id =>
++    document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") adminLogin(); })
++  );
++</script>
++</body></html>
+diff --git a/main.py b/main.py
+index aa16785..fae9f75 100644
+--- a/main.py
++++ b/main.py
+@@ -4,20 +4,38 @@ import time
+ from datetime import datetime, timezone
+ 
+ import joblib
+ from fastapi import FastAPI
+ from fastapi.middleware.cors import CORSMiddleware
+ from fastapi.staticfiles import StaticFiles
+ from pydantic import BaseModel
+ 
+ import db
+ from train_crop_model import FEATURES, MIN_CONFIDENCE, MODEL_PATH, PH_CROP_WHITELIST
++
++CROP_FIL = {
++    "rice": "palay", "maize": "mais", "chickpea": "garbanzos", "kidneybeans": "habichuelas",
++    "pigeonpeas": "kadyos", "mothbeans": "paayap", "mungbean": "monggo", "blackgram": "itim na munggo",
++    "lentil": "lentil", "pomegranate": "granada", "banana": "saging", "mango": "mangga",
++    "grapes": "ubas", "watermelon": "pakwan", "muskmelon": "melon", "apple": "mansanas",
++    "orange": "dalandan", "papaya": "papaya", "coconut": "niyog", "cotton": "bulak",
++    "jute": "yute", "coffee": "kape",
++}
++
++def _localize_crop(text: str, crop_en: str, lang: str) -> str:
++    if lang != "fil" or not crop_en:
++        return text
++    fil = CROP_FIL.get(crop_en.lower())
++    if fil:
++        import re
++        text = re.sub(re.escape(crop_en), fil, text, flags=re.IGNORECASE)
++    return text
+ from sensor_sim import simulate_sensor_values
+ from explain import explain_reading
+ from translate import translate
+ from geometry import sensor_count_for, suggest_sensor_points
+ import pandas as pd
+ import requests
+ from fastapi import HTTPException
+ 
+ CROP_DATA_PATH = "data_for_training/Crop_recommendation.csv"
+ _crop_df = None  # loaded once at startup, used for simulated readings
+@@ -173,20 +191,21 @@ def explain(reading_id: int, lang: str = "en"):
+     if reading is None:
+         raise HTTPException(status_code=404, detail=f"Unknown reading id: {reading_id}")
+     try:
+         explanation = explain_reading(reading)
+     except requests.RequestException:
+         raise HTTPException(status_code=503, detail="Offline AI model (Ollama) is not reachable.")
+     try:
+         explanation = translate(explanation, lang)
+     except ValueError:
+         raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
++    explanation = _localize_crop(explanation, reading.get("predicted_crop"), lang)
+     return {"explanation": explanation}
+ 
+ 
+ @app.get("/readings")
+ def list_readings():
+     return db.get_all_readings()
+ 
+ 
+ @app.get("/readings/{plot_id}")
+ def list_readings_for_plot(plot_id: str):
+@@ -205,20 +224,28 @@ class FarmIn(BaseModel):
+     polygon: list[list[float]]  # [[lat, lng], ...] drawn shape vertices
+ 
+ 
+ class FarmUpdate(BaseModel):
+     farm_name: str
+     owner_name: str | None = None
+     hectares: float
+     polygon: list[list[float]]
+ 
+ 
++class FarmerIn(BaseModel):
++    name: str
++
++
++class FarmAssignIn(BaseModel):
++    farmer_id: str | None = None
++
++
+ @app.post("/farms")
+ def create_farm(farm: FarmIn):
+     """Register a farm boundary and auto-place sensor sub-plots inside it
+     (5 sensors/hectare, min 1, max 30). farm_name doubles as the farmer's
+     login identifier on farmer.html, so it must be unique."""
+     if db.get_farm_by_name(farm.farm_name):
+         raise HTTPException(status_code=409, detail=f"Farm name already taken: {farm.farm_name}")
+ 
+     farm_id = "FARM-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+     sensor_count = sensor_count_for(farm.hectares)
+@@ -288,23 +315,104 @@ def predict_farm(farm_id: str):
+ 
+     fields = ["soil_n", "soil_p", "soil_k", "soil_ph", "air_temp_c", "humidity_pct", "rainfall_mm"]
+     avg = {f: sum(s[f] for s in sensors) / len(sensors) for f in fields}
+     prediction = predict_crop(
+         avg["soil_n"], avg["soil_p"], avg["soil_k"],
+         avg["air_temp_c"], avg["humidity_pct"], avg["soil_ph"], avg["rainfall_mm"],
+     )
+     return {"farm_id": farm_id, "sensor_count": len(sensors), "averaged_readings": avg, **prediction}
+ 
+ 
++@app.get("/farms/{farm_id}/explain")
++def explain_farm(farm_id: str, lang: str = "en"):
++    if not db.get_farm(farm_id):
++        raise HTTPException(status_code=404, detail=f"Unknown farm_id: {farm_id}")
++    sensors = [s for s in db.get_latest_for_farm(farm_id) if s["soil_n"] is not None]
++    if not sensors:
++        raise HTTPException(status_code=400, detail="No sensor readings yet for this farm.")
++    fields = ["soil_n", "soil_p", "soil_k", "soil_ph", "air_temp_c", "humidity_pct", "rainfall_mm"]
++    avg = {f: sum(s[f] for s in sensors) / len(sensors) for f in fields}
++    prediction = predict_crop(avg["soil_n"], avg["soil_p"], avg["soil_k"],
++                              avg["air_temp_c"], avg["humidity_pct"], avg["soil_ph"], avg["rainfall_mm"])
++    reading = {**avg, "predicted_crop": prediction["crop"], "confidence": prediction["confidence"]}
++    try:
++        explanation = explain_reading(reading)
++    except requests.RequestException:
++        raise HTTPException(status_code=503, detail="Offline AI model (Ollama) is not reachable.")
++    try:
++        explanation = translate(explanation, lang)
++    except ValueError:
++        raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
++    explanation = _localize_crop(explanation, prediction["crop"], lang)
++    return {"explanation": explanation}
++
++
+ @app.get("/farms/by-name/{farm_name}")
+ def farm_by_name(farm_name: str):
+     """Farmer login: look up a farm (and its sensor sub-plots) by name, no password."""
+     farm = db.get_farm_by_name(farm_name)
+     if not farm:
+         raise HTTPException(status_code=404, detail=f"Unknown farm name: {farm_name}")
+     farm["polygon"] = json.loads(farm["polygon"])
+     farm["sensors"] = db.get_latest_for_farm(farm["farm_id"])
+     return farm
+ 
+ 
++@app.get("/farmers")
++def list_farmers():
++    return db.get_all_farmers()
++
++
++@app.post("/farmers")
++def create_farmer(body: FarmerIn):
++    import uuid
++    if db.get_farmer_by_name(body.name):
++        raise HTTPException(status_code=409, detail=f"Farmer name already taken: {body.name}")
++    return db.insert_farmer({
++        "id": str(uuid.uuid4()),
++        "name": body.name,
++        "created_at": datetime.now(timezone.utc).isoformat(),
++    })
++
++
++@app.put("/farmers/{farmer_id}")
++def update_farmer(farmer_id: str, body: FarmerIn):
++    if not db.get_farmer(farmer_id):
++        raise HTTPException(status_code=404, detail=f"Unknown farmer: {farmer_id}")
++    existing = db.get_farmer_by_name(body.name)
++    if existing and existing["id"] != farmer_id:
++        raise HTTPException(status_code=409, detail=f"Name already taken: {body.name}")
++    return db.update_farmer(farmer_id, body.name)
++
++
++@app.delete("/farmers/{farmer_id}")
++def remove_farmer(farmer_id: str):
++    if not db.get_farmer(farmer_id):
++        raise HTTPException(status_code=404, detail=f"Unknown farmer: {farmer_id}")
++    db.delete_farmer(farmer_id)
++    return {"deleted": farmer_id}
++
++
++@app.get("/farmers/by-name/{name}")
++def farmer_by_name(name: str):
++    farmer = db.get_farmer_by_name(name)
++    if not farmer:
++        raise HTTPException(status_code=404, detail=f"Unknown farmer: {name}")
++    farms = [f for f in db.get_all_farms() if f.get("farmer_id") == farmer["id"]]
++    for f in farms:
++        f["polygon"] = json.loads(f["polygon"]) if isinstance(f["polygon"], str) else f["polygon"]
++        f["sensors"] = db.get_latest_for_farm(f["farm_id"])
++    return {**farmer, "farms": farms}
++
++
++@app.put("/farms/{farm_id}/farmer")
++def assign_farmer(farm_id: str, body: FarmAssignIn):
++    if not db.get_farm(farm_id):
++        raise HTTPException(status_code=404, detail=f"Unknown farm: {farm_id}")
++    if body.farmer_id and not db.get_farmer(body.farmer_id):
++        raise HTTPException(status_code=404, detail=f"Unknown farmer: {body.farmer_id}")
++    db.assign_farm_to_farmer(farm_id, body.farmer_id)
++    return {"farm_id": farm_id, "farmer_id": body.farmer_id}
++
++
+ # ponytail: mounted last so API routes above always win over static files of the same path
+ app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+diff --git a/presentation/.gitkeep b/presentation/.gitkeep
+new file mode 100644
+index 0000000..8b13789
+--- /dev/null
++++ b/presentation/.gitkeep
+@@ -0,0 +1 @@
++
+diff --git a/proposal/.gitkeep b/proposal/.gitkeep
+new file mode 100644
+index 0000000..8b13789
+--- /dev/null
++++ b/proposal/.gitkeep
+@@ -0,0 +1 @@
++
+diff --git a/prototype/.gitkeep b/prototype/.gitkeep
+new file mode 100644
+index 0000000..8b13789
+--- /dev/null
++++ b/prototype/.gitkeep
+@@ -0,0 +1 @@
++
