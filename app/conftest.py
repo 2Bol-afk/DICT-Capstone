@@ -14,7 +14,16 @@ EMULATOR_PROJECT = "bukid-ac67d"
 # shims the way a shell would. shutil.which() applies PATHEXT resolution
 # on Windows (and is a no-op passthrough elsewhere), so this keeps the
 # fixture portable across platforms.
-FIREBASE_BIN = shutil.which("firebase") or "firebase"
+#
+# If firebase isn't found on PATH at all, fail loudly here rather than
+# silently falling back to the literal string "firebase" — that fallback
+# would just defer the same WinError 2 failure into the fixture's
+# subprocess.Popen call, with a less informative stack trace.
+FIREBASE_BIN = shutil.which("firebase")
+if FIREBASE_BIN is None:
+    raise RuntimeError(
+        "firebase CLI not found on PATH — install via `npm install -g firebase-tools`"
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
