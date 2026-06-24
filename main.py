@@ -11,6 +11,24 @@ from pydantic import BaseModel
 
 import db
 from train_crop_model import FEATURES, MIN_CONFIDENCE, MODEL_PATH, PH_CROP_WHITELIST
+
+CROP_FIL = {
+    "rice": "palay", "maize": "mais", "chickpea": "garbanzos", "kidneybeans": "habichuelas",
+    "pigeonpeas": "kadyos", "mothbeans": "paayap", "mungbean": "monggo", "blackgram": "itim na munggo",
+    "lentil": "lentil", "pomegranate": "granada", "banana": "saging", "mango": "mangga",
+    "grapes": "ubas", "watermelon": "pakwan", "muskmelon": "melon", "apple": "mansanas",
+    "orange": "dalandan", "papaya": "papaya", "coconut": "niyog", "cotton": "bulak",
+    "jute": "yute", "coffee": "kape",
+}
+
+def _localize_crop(text: str, crop_en: str, lang: str) -> str:
+    if lang != "fil" or not crop_en:
+        return text
+    fil = CROP_FIL.get(crop_en.lower())
+    if fil:
+        import re
+        text = re.sub(re.escape(crop_en), fil, text, flags=re.IGNORECASE)
+    return text
 from sensor_sim import simulate_sensor_values
 from explain import explain_reading
 from translate import translate
@@ -180,6 +198,7 @@ def explain(reading_id: int, lang: str = "en"):
         explanation = translate(explanation, lang)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
+    explanation = _localize_crop(explanation, reading.get("predicted_crop"), lang)
     return {"explanation": explanation}
 
 
@@ -210,6 +229,14 @@ class FarmUpdate(BaseModel):
     owner_name: str | None = None
     hectares: float
     polygon: list[list[float]]
+
+
+class FarmerIn(BaseModel):
+    name: str
+
+
+class FarmAssignIn(BaseModel):
+    farmer_id: str | None = None
 
 
 @app.post("/farms")
@@ -295,6 +322,30 @@ def predict_farm(farm_id: str):
     return {"farm_id": farm_id, "sensor_count": len(sensors), "averaged_readings": avg, **prediction}
 
 
+@app.get("/farms/{farm_id}/explain")
+def explain_farm(farm_id: str, lang: str = "en"):
+    if not db.get_farm(farm_id):
+        raise HTTPException(status_code=404, detail=f"Unknown farm_id: {farm_id}")
+    sensors = [s for s in db.get_latest_for_farm(farm_id) if s["soil_n"] is not None]
+    if not sensors:
+        raise HTTPException(status_code=400, detail="No sensor readings yet for this farm.")
+    fields = ["soil_n", "soil_p", "soil_k", "soil_ph", "air_temp_c", "humidity_pct", "rainfall_mm"]
+    avg = {f: sum(s[f] for s in sensors) / len(sensors) for f in fields}
+    prediction = predict_crop(avg["soil_n"], avg["soil_p"], avg["soil_k"],
+                              avg["air_temp_c"], avg["humidity_pct"], avg["soil_ph"], avg["rainfall_mm"])
+    reading = {**avg, "predicted_crop": prediction["crop"], "confidence": prediction["confidence"]}
+    try:
+        explanation = explain_reading(reading)
+    except requests.RequestException:
+        raise HTTPException(status_code=503, detail="Offline AI model (Ollama) is not reachable.")
+    try:
+        explanation = translate(explanation, lang)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unsupported language: {lang}")
+    explanation = _localize_crop(explanation, prediction["crop"], lang)
+    return {"explanation": explanation}
+
+
 @app.get("/farms/by-name/{farm_name}")
 def farm_by_name(farm_name: str):
     """Farmer login: look up a farm (and its sensor sub-plots) by name, no password."""
@@ -304,6 +355,63 @@ def farm_by_name(farm_name: str):
     farm["polygon"] = json.loads(farm["polygon"])
     farm["sensors"] = db.get_latest_for_farm(farm["farm_id"])
     return farm
+
+
+@app.get("/farmers")
+def list_farmers():
+    return db.get_all_farmers()
+
+
+@app.post("/farmers")
+def create_farmer(body: FarmerIn):
+    import uuid
+    if db.get_farmer_by_name(body.name):
+        raise HTTPException(status_code=409, detail=f"Farmer name already taken: {body.name}")
+    return db.insert_farmer({
+        "id": str(uuid.uuid4()),
+        "name": body.name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.put("/farmers/{farmer_id}")
+def update_farmer(farmer_id: str, body: FarmerIn):
+    if not db.get_farmer(farmer_id):
+        raise HTTPException(status_code=404, detail=f"Unknown farmer: {farmer_id}")
+    existing = db.get_farmer_by_name(body.name)
+    if existing and existing["id"] != farmer_id:
+        raise HTTPException(status_code=409, detail=f"Name already taken: {body.name}")
+    return db.update_farmer(farmer_id, body.name)
+
+
+@app.delete("/farmers/{farmer_id}")
+def remove_farmer(farmer_id: str):
+    if not db.get_farmer(farmer_id):
+        raise HTTPException(status_code=404, detail=f"Unknown farmer: {farmer_id}")
+    db.delete_farmer(farmer_id)
+    return {"deleted": farmer_id}
+
+
+@app.get("/farmers/by-name/{name}")
+def farmer_by_name(name: str):
+    farmer = db.get_farmer_by_name(name)
+    if not farmer:
+        raise HTTPException(status_code=404, detail=f"Unknown farmer: {name}")
+    farms = [f for f in db.get_all_farms() if f.get("farmer_id") == farmer["id"]]
+    for f in farms:
+        f["polygon"] = json.loads(f["polygon"]) if isinstance(f["polygon"], str) else f["polygon"]
+        f["sensors"] = db.get_latest_for_farm(f["farm_id"])
+    return {**farmer, "farms": farms}
+
+
+@app.put("/farms/{farm_id}/farmer")
+def assign_farmer(farm_id: str, body: FarmAssignIn):
+    if not db.get_farm(farm_id):
+        raise HTTPException(status_code=404, detail=f"Unknown farm: {farm_id}")
+    if body.farmer_id and not db.get_farmer(body.farmer_id):
+        raise HTTPException(status_code=404, detail=f"Unknown farmer: {body.farmer_id}")
+    db.assign_farm_to_farmer(farm_id, body.farmer_id)
+    return {"farm_id": farm_id, "farmer_id": body.farmer_id}
 
 
 # ponytail: mounted last so API routes above always win over static files of the same path
