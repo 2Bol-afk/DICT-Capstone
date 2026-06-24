@@ -1,6 +1,12 @@
 app/frontend/config.js
 model/
 readings.db
+app/firebase-service-account.json
+bukid.json
+node_modules/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
 __pycache__/
 *.pyc
