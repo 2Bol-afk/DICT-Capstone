@@ -241,9 +241,23 @@ function applyLanguage(pref) {
   // Update active states in Settings
   document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === pref));
   // Refresh any displayed crop labels
-  if (currentSensorEn) {
-    document.getElementById("sensorRecCrop").textContent = cropLabel(currentSensorEn);
+  if (currentSensorFarmId) {
+    const recCropEl = document.getElementById("sensorRecCrop");
+    if (currentSensorEn) {
+      recCropEl.textContent = cropLabel(currentSensorEn);
+    } else if (!recCropEl.textContent.includes("%")) {
+      recCropEl.textContent = pref === "en" ? "No match yet" : "Walang sapat na datos";
+    }
   }
+  // Refresh My Farms card crop labels (skip cards still showing "…" while loading)
+  document.querySelectorAll('[id^="farmRec_"]').forEach(el => {
+    const cropEn = el.getAttribute("data-crop-en");
+    if (cropEn) {
+      el.textContent = cropLabel(cropEn);
+    } else if (el.textContent !== "…") {
+      el.textContent = pref === "en" ? "No match yet" : "Walang sapat na datos";
+    }
+  });
 }
 
 // ===== THEME =====
@@ -311,6 +325,8 @@ function buildFarmCardSkeleton(farm) {
   recWrap.className = "text-right flex-shrink-0";
   const recLabel = document.createElement("p");
   recLabel.className = "text-[10px] font-bold text-gray-400 uppercase mb-0.5";
+  recLabel.setAttribute("data-fil", "Rekomendasyon");
+  recLabel.setAttribute("data-en", "Recommendation");
   recLabel.textContent = lang === "en" ? "Recommendation" : "Rekomendasyon";
   const recCrop = document.createElement("p");
   recCrop.className = "text-sm font-bold text-[#0d631b]";
@@ -352,7 +368,8 @@ async function fetchFarmPredict(farm) {
       cropEl.setAttribute("data-crop-en", data.crop);
       if (confEl) confEl.textContent = `${Math.round((data.confidence || 0) * 100)}%`;
     } else {
-      cropEl.textContent = lang === "en" ? "No match" : "Walang katugma";
+      cropEl.removeAttribute("data-crop-en");
+      cropEl.textContent = lang === "en" ? "No match yet" : "Walang sapat na datos";
       if (confEl) confEl.textContent = "";
     }
   } catch {
@@ -377,21 +394,41 @@ async function loadSensors(farmId) {
   const farm = farmerAuth.farms.find(f => f.farm_id === farmId);
   if (!farm) return;
 
-  // Fetch predict
+  // Refresh this farm's sensors live — farmerAuth is a snapshot taken at login,
+  // so readings added/changed afterward (e.g. by the simulator) won't show
+  // until we re-fetch. Update the cached copy too so other tabs (My Farms,
+  // History) stay in sync without a full re-login.
+  try {
+    const fresh = await fetch(`${API}/farms/by-name/${encodeURIComponent(farm.farm_name)}`).then(r => r.ok ? r.json() : null);
+    if (fresh && Array.isArray(fresh.sensors)) {
+      farm.sensors = fresh.sensors;
+      sessionStorage.setItem("farmerAuth", JSON.stringify(farmerAuth));
+    }
+  } catch { /* keep cached sensors if the refresh fails */ }
+
+  // Fetch predict — always show the card; fall back to a "no data yet" message
+  // instead of hiding it, so the "Rekomendasyon" label doesn't disappear.
+  const recCard = document.getElementById("sensorRecCard");
   try {
     const res = await fetch(`${API}/farms/${encodeURIComponent(farmId)}/predict`);
-    if (res.ok) {
-      const data = await res.json();
-      currentSensorEn = data.crop || null;
-      const recCard = document.getElementById("sensorRecCard");
-      document.getElementById("sensorRecCrop").textContent = data.crop ? cropLabel(data.crop) : (lang === "en" ? "No match" : "Walang katugma");
-      document.getElementById("sensorRecConf").textContent = data.crop ? `${Math.round((data.confidence || 0) * 100)}% confidence` : "";
-      if (data.crop) {
-        document.getElementById("sensorExplainBtn").classList.remove("hidden");
-      }
-      recCard.classList.remove("hidden");
-    }
-  } catch { /* ignore */ }
+    let data = null;
+    if (res.ok) data = await res.json();
+    currentSensorEn = data?.crop || null;
+    document.getElementById("sensorRecCrop").textContent = data?.crop
+      ? cropLabel(data.crop)
+      : (lang === "en" ? "No match yet" : "Walang sapat na datos");
+    document.getElementById("sensorRecConf").textContent = data?.crop
+      ? `${Math.round((data.confidence || 0) * 100)}% confidence`
+      : "";
+    document.getElementById("sensorExplainBtn").classList.toggle("hidden", !data?.crop);
+    recCard.classList.remove("hidden");
+  } catch {
+    currentSensorEn = null;
+    document.getElementById("sensorRecCrop").textContent = lang === "en" ? "Could not load" : "Hindi ma-load";
+    document.getElementById("sensorRecConf").textContent = "";
+    document.getElementById("sensorExplainBtn").classList.add("hidden");
+    recCard.classList.remove("hidden");
+  }
 
   // Build sensor buttons
   if (farm.sensors.length) {

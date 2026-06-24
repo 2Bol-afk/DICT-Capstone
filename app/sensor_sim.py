@@ -17,12 +17,20 @@ def sample_reading(df: pd.DataFrame, crop: str) -> dict:
     return values
 
 
-def simulate_sensor_values(df: pd.DataFrame) -> dict:
-    """Pick a random PH-relevant crop and sample realistic sensor values for it."""
+def simulate_sensor_values(df: pd.DataFrame, crop: str | None = None) -> dict:
+    """Sample realistic sensor values for a PH-relevant crop.
+
+    If crop is omitted, pick one at random. Callers simulating multiple
+    sensors on the same farm should pass the same crop for all of them —
+    otherwise each sensor samples an unrelated crop and the farm-wide
+    average (used for the whole-farm recommendation) blends incompatible
+    profiles into a low-confidence mush that the model correctly rejects.
+    """
     # ponytail: only sample PH-relevant crops — real PH farms wouldn't be
     # growing coffee/grapes, so simulating them just produces noise
     ph_labels = PH_CROP_WHITELIST & set(df["label"].unique())
-    crop = random.choice(sorted(ph_labels))
+    if crop is None:
+        crop = random.choice(sorted(ph_labels))
     sampled = sample_reading(df, crop)
     return {
         "soil_n": sampled["N"],

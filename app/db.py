@@ -69,6 +69,14 @@ def init_db():
             conn.execute("ALTER TABLE farms ADD COLUMN farmer_id TEXT REFERENCES farmers(id) ON DELETE SET NULL")
         except sqlite3.OperationalError:
             pass  # already migrated
+        try:
+            conn.execute("ALTER TABLE farmers ADD COLUMN password_hash TEXT")
+        except sqlite3.OperationalError:
+            pass  # already migrated
+        try:
+            conn.execute("ALTER TABLE farmers ADD COLUMN role TEXT DEFAULT 'farmer'")
+        except sqlite3.OperationalError:
+            pass  # already migrated
 
 
 def insert_farm(farm: dict) -> dict:
@@ -193,10 +201,16 @@ def get_latest_per_plot() -> list[dict]:
 def insert_farmer(farmer: dict) -> dict:
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO farmers (id, name, created_at) VALUES (?, ?, ?)",
-            (farmer["id"], farmer["name"], farmer["created_at"]),
+            "INSERT INTO farmers (id, name, created_at, password_hash, role) VALUES (?, ?, ?, ?, ?)",
+            (farmer["id"], farmer["name"], farmer["created_at"],
+             farmer.get("password_hash"), farmer.get("role", "farmer")),
         )
     return get_farmer(farmer["id"])
+
+
+def set_farmer_password(farmer_id: str, password_hash: str):
+    with get_conn() as conn:
+        conn.execute("UPDATE farmers SET password_hash = ? WHERE id = ?", (password_hash, farmer_id))
 
 
 def get_farmer(farmer_id: str) -> dict | None:

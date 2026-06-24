@@ -4,6 +4,8 @@ from functools import lru_cache
 # ponytail: model is already cached locally - skip the network freshness-check that
 # transformers does by default, which can hang for a long time with no error/timeout.
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
+# point at the bundled model cache regardless of cwd (app/model/huggingface)
+os.environ.setdefault("HF_HOME", os.path.join(os.path.dirname(os.path.abspath(__file__)), "model", "huggingface"))
 
 MODEL_NAME = "facebook/nllb-200-distilled-600M"
 

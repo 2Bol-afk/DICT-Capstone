@@ -5,6 +5,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Agri-Admin | Admin Panel</title>
 <script>if (!sessionStorage.getItem("adminAuth")) window.location.replace("/");</script>
+<script>if (localStorage.getItem("theme") === "dark") document.documentElement.classList.add("dark");</script>
 <script src="config.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -15,6 +16,19 @@
   .hidden { display: none !important; }
   .nav-btn.active { background-color: #f0fdf4; color: #0d631b; font-weight: 700; }
   .nav-btn { transition: background 0.15s, color 0.15s; }
+  .theme-option.active, .lang-option.active { background-color: #0d631b; color: #fff; border-color: #0d631b; }
+
+  /* Dark mode */
+  html.dark body { background-color: #101410 !important; color: #e5e9e2; }
+  html.dark .bg-\[\#f7fbf0\] { background-color: #101410 !important; }
+  html.dark .bg-white { background-color: #1b211c !important; }
+  html.dark .bg-gray-50 { background-color: #222922 !important; }
+  html.dark .bg-\[\#f0fdf4\] { background-color: #16261a !important; }
+  html.dark .text-gray-800, html.dark .text-gray-700, html.dark .text-gray-600 { color: #e5e9e2 !important; }
+  html.dark .text-gray-500, html.dark .text-gray-400 { color: #a9b3a4 !important; }
+  html.dark .border-gray-100, html.dark .border-gray-200 { border-color: #2e382e !important; }
+  html.dark .divide-gray-50 > * { border-color: #2e382e !important; }
+  html.dark .nav-btn.active { background-color: #16261a; color: #4ade80; }
 </style>
 </head>
 <body class="flex h-screen overflow-hidden bg-[#f7fbf0]">
@@ -42,12 +56,17 @@
     <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-[#f0fdf4] hover:text-[#0d631b]"
       data-tab="tabFarmers">
       <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">group</span>
-      <span class="text-sm font-medium">Mga Magsasaka</span>
+      <span class="text-sm font-medium" data-fil="Mga Magsasaka" data-en="Farmers">Mga Magsasaka</span>
     </button>
     <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-[#f0fdf4] hover:text-[#0d631b]"
       data-tab="tabFarms">
       <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">landscape</span>
-      <span class="text-sm font-medium">Mga Bukid</span>
+      <span class="text-sm font-medium" data-fil="Mga Bukid" data-en="Farms">Mga Bukid</span>
+    </button>
+    <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-gray-600 hover:bg-[#f0fdf4] hover:text-[#0d631b]"
+      data-tab="tabSettings">
+      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">settings</span>
+      <span class="text-sm font-medium" data-fil="Mga Setting" data-en="Settings">Mga Setting</span>
     </button>
   </nav>
 
@@ -56,7 +75,7 @@
     <button id="logoutBtn"
       class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-red-600 hover:bg-red-50 transition">
       <span class="material-symbols-outlined">logout</span>
-      <span class="text-sm font-medium">Logout</span>
+      <span class="text-sm font-medium" data-fil="Mag-logout" data-en="Logout">Mag-logout</span>
     </button>
   </div>
 </aside>
@@ -71,23 +90,39 @@
     <!-- Stats row -->
     <div class="grid grid-cols-3 gap-5" id="statsRow">
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Mga Magsasaka</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1" data-fil="Mga Magsasaka" data-en="Farmers">Mga Magsasaka</p>
         <p class="text-4xl font-bold text-[#0d631b]" id="statFarmers">—</p>
       </div>
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Mga Bukid</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1" data-fil="Mga Bukid" data-en="Farms">Mga Bukid</p>
         <p class="text-4xl font-bold text-[#0d631b]" id="statFarms">—</p>
       </div>
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Sensor na May Reading</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1" data-fil="Sensor na May Reading" data-en="Sensors with Reading">Sensor na May Reading</p>
         <p class="text-4xl font-bold text-[#0d631b]" id="statSensors">—</p>
       </div>
     </div>
 
     <!-- Map -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <h3 class="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Mapa ng mga Bukid</h3>
-      <div id="map" style="width:100%;height:420px;border-radius:12px;"></div>
+      <h3 class="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide" data-fil="Mapa ng mga Bukid" data-en="Farm Map">Mapa ng mga Bukid</h3>
+      <div class="relative">
+        <div id="map" style="width:100%;height:420px;border-radius:12px;"></div>
+        <div class="absolute top-3 left-3 bg-white/95 rounded-lg shadow-md px-3 py-2 text-xs space-y-1.5 pointer-events-none">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-3 h-3 rounded-full" style="background:#0d631b"></span>
+            <span class="text-gray-700" data-fil="Sensor (may reading)" data-en="Sensor (has reading)">Sensor (may reading)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-3 h-3 rounded-full" style="background:#9ca3af"></span>
+            <span class="text-gray-700" data-fil="Sensor (walang reading)" data-en="Sensor (no reading)">Sensor (walang reading)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-3 h-3 rounded-sm" style="background:#22c55e;opacity:0.5"></span>
+            <span class="text-gray-700" data-fil="Hangganan ng Bukid" data-en="Farm Boundary">Hangganan ng Bukid</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Farm overview table -->
@@ -100,13 +135,13 @@
           <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
             <tr>
               <th class="px-6 py-3 font-semibold">Farm Name</th>
-              <th class="px-6 py-3 font-semibold">Magsasaka</th>
-              <th class="px-6 py-3 font-semibold">Sensors</th>
-              <th class="px-6 py-3 font-semibold">Rekomendasyon</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Magsasaka" data-en="Farmer">Magsasaka</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Sensors" data-en="Sensors">Sensors</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Rekomendasyon" data-en="Recommendation">Rekomendasyon</th>
             </tr>
           </thead>
           <tbody id="dashFarmBody" class="divide-y divide-gray-50">
-            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Naglo-load...</td></tr>
+            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400" data-fil="Naglo-load..." data-en="Loading...">Naglo-load...</td></tr>
           </tbody>
         </table>
       </div>
@@ -116,11 +151,11 @@
   <!-- Tab: Mga Magsasaka -->
   <div id="tabFarmers" class="hidden p-8 max-w-6xl mx-auto space-y-6">
     <div class="flex items-center justify-between">
-      <h2 class="text-2xl font-bold text-gray-800">Mga Magsasaka</h2>
+      <h2 class="text-2xl font-bold text-gray-800" data-fil="Mga Magsasaka" data-en="Farmers">Mga Magsasaka</h2>
       <button id="addFarmerBtn"
         class="flex items-center gap-2 bg-[#0d631b] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
         <span class="material-symbols-outlined text-lg">add</span>
-        Magdagdag
+        <span data-fil="Magdagdag" data-en="Add">Magdagdag</span>
       </button>
     </div>
 
@@ -129,14 +164,14 @@
         <table class="w-full text-sm text-left">
           <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
             <tr>
-              <th class="px-6 py-3 font-semibold">Pangalan</th>
-              <th class="px-6 py-3 font-semibold">Mga Bukid</th>
-              <th class="px-6 py-3 font-semibold">Petsa ng Paglikha</th>
-              <th class="px-6 py-3 font-semibold">Aksyon</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Pangalan" data-en="Name">Pangalan</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Mga Bukid" data-en="Farms">Mga Bukid</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Petsa ng Paglikha" data-en="Date Created">Petsa ng Paglikha</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Aksyon" data-en="Action">Aksyon</th>
             </tr>
           </thead>
           <tbody id="farmersBody" class="divide-y divide-gray-50">
-            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Naglo-load...</td></tr>
+            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400" data-fil="Naglo-load..." data-en="Loading...">Naglo-load...</td></tr>
           </tbody>
         </table>
       </div>
@@ -146,11 +181,11 @@
   <!-- Tab: Mga Bukid -->
   <div id="tabFarms" class="hidden p-8 max-w-6xl mx-auto space-y-6">
     <div class="flex items-center justify-between">
-      <h2 class="text-2xl font-bold text-gray-800">Mga Bukid</h2>
+      <h2 class="text-2xl font-bold text-gray-800" data-fil="Mga Bukid" data-en="Farms">Mga Bukid</h2>
       <button id="addFarmBtn"
         class="flex items-center gap-2 bg-[#0d631b] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
         <span class="material-symbols-outlined text-lg">add</span>
-        Magdagdag
+        <span data-fil="Magdagdag" data-en="Add">Magdagdag</span>
       </button>
     </div>
 
@@ -159,17 +194,38 @@
         <table class="w-full text-sm text-left">
           <thead class="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
             <tr>
-              <th class="px-6 py-3 font-semibold">Bukid</th>
-              <th class="px-6 py-3 font-semibold">Magsasaka</th>
-              <th class="px-6 py-3 font-semibold">Mga Sensor</th>
-              <th class="px-6 py-3 font-semibold">Hectares</th>
-              <th class="px-6 py-3 font-semibold">Aksyon</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Bukid" data-en="Farm">Bukid</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Magsasaka" data-en="Farmer">Magsasaka</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Mga Sensor" data-en="Sensors">Mga Sensor</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Hectares" data-en="Hectares">Hectares</th>
+              <th class="px-6 py-3 font-semibold" data-fil="Aksyon" data-en="Action">Aksyon</th>
             </tr>
           </thead>
           <tbody id="farmsBody" class="divide-y divide-gray-50">
-            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">Naglo-load...</td></tr>
+            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400" data-fil="Naglo-load..." data-en="Loading...">Naglo-load...</td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Settings -->
+  <div id="tabSettings" class="hidden p-8 max-w-2xl mx-auto space-y-6">
+    <h2 class="text-2xl font-bold text-gray-800" data-fil="Mga Setting" data-en="Settings">Mga Setting</h2>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400" data-fil="Wika" data-en="Language">Wika</p>
+      <div class="flex gap-2">
+        <button class="lang-option flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold" data-lang="fil">Tagalog</button>
+        <button class="lang-option flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold" data-lang="en">English</button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400" data-fil="Tema" data-en="Theme">Tema</p>
+      <div class="flex gap-2">
+        <button class="theme-option flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold" data-theme="light">Light</button>
+        <button class="theme-option flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold" data-theme="dark">Dark</button>
       </div>
     </div>
   </div>
@@ -182,14 +238,14 @@
 <div id="farmerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
     <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-      <h3 id="farmerModalTitle" class="font-bold text-gray-800 text-lg">Magdagdag ng Magsasaka</h3>
+      <h3 id="farmerModalTitle" class="font-bold text-gray-800 text-lg" data-fil="Magdagdag ng Magsasaka" data-en="Add Farmer">Magdagdag ng Magsasaka</h3>
       <button id="farmerModalClose" class="p-1.5 hover:bg-gray-100 rounded-full transition">
         <span class="material-symbols-outlined text-gray-400">close</span>
       </button>
     </div>
     <div class="p-6 space-y-4">
       <div>
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Pangalan</label>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5" data-fil="Pangalan" data-en="Name">Pangalan</label>
         <input id="farmerNameInput" type="text" placeholder="Juan Dela Cruz"
           class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition"/>
         <p id="farmerModalError" class="hidden text-xs text-red-500 mt-1.5"></p>
@@ -208,39 +264,86 @@
   </div>
 </div>
 
-<!-- Farm assign modal -->
-<div id="farmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+<!-- Add/Edit Farm modal -->
+<div id="addFarmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
     <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-      <h3 class="font-bold text-gray-800 text-lg">I-assign ang Magsasaka</h3>
-      <button id="farmModalClose" class="p-1.5 hover:bg-gray-100 rounded-full transition">
+      <h3 id="addFarmTitle" class="font-bold text-gray-800 text-lg" data-fil="Magdagdag ng Bukid" data-en="Add Farm">Magdagdag ng Bukid</h3>
+      <button id="addFarmClose" class="p-1.5 hover:bg-gray-100 rounded-full transition">
         <span class="material-symbols-outlined text-gray-400">close</span>
       </button>
     </div>
     <div class="p-6 space-y-4">
-      <div class="bg-[#f0fdf4] rounded-lg px-4 py-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Bukid</p>
-        <p id="farmModalName" class="font-bold text-[#0d631b]">—</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5" data-fil="Pangalan ng Bukid" data-en="Farm Name">Pangalan ng Bukid</label>
+          <input id="addFarmName" type="text" placeholder="hal. dela-cruz-farm"
+            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5" data-fil="May-ari / Magsasaka" data-en="Owner / Farmer">May-ari / Magsasaka</label>
+          <select id="addFarmOwner"
+            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition bg-white">
+            <option value="" data-fil="— Walang magsasaka —" data-en="— No farmer —">— Walang magsasaka —</option>
+          </select>
+        </div>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Magsasaka</label>
-        <select id="farmModalFarmerSelect"
-          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0d631b] focus:ring-1 focus:ring-[#0d631b] transition bg-white">
-          <option value="">— Walang magsasaka —</option>
-        </select>
-        <p id="farmModalError" class="hidden text-xs text-red-500 mt-1.5"></p>
+
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide" data-fil="I-guhit ang Hangganan" data-en="Draw the Boundary">I-guhit ang Hangganan</p>
+        <button id="locateMeBtn" type="button" class="flex items-center gap-1 text-xs font-bold text-[#0d631b] hover:underline">
+          <span class="material-symbols-outlined text-base">my_location</span> Hanapin ako
+        </button>
+      </div>
+      <div class="relative">
+        <div id="addFarmMap" class="w-full rounded-xl border border-gray-200" style="height:280px"></div>
+        <div class="absolute top-2 left-2 bg-white/95 rounded-lg shadow-md px-2.5 py-1.5 text-[11px] space-y-1 pointer-events-none">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:#0d631b;opacity:0.5"></span>
+            <span data-fil="Ito ang ginuhit mo" data-en="What you're drawing">Ito ang ginuhit mo</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:#9ca3af;opacity:0.6"></span>
+            <span data-fil="Mga bukid na naka-mark na" data-en="Already marked farms">Mga bukid na naka-mark na</span>
+          </div>
+        </div>
+      </div>
+      <p id="addFarmHint" class="text-xs text-gray-500" data-fil="I-click ang mapa para maglagay ng mga sulok (3+), pagkatapos i-click ang Tapusin." data-en="Click the map to place corners (3+), then click Finish.">I-click ang mapa para maglagay ng mga sulok (3+), pagkatapos i-click ang Tapusin.</p>
+
+      <div class="flex items-center gap-2">
+        <button id="finishShapeBtn" type="button"
+          class="flex-1 border border-[#0d631b] text-[#0d631b] rounded-lg py-2 text-sm font-bold hover:bg-[#f0fdf4] transition" data-fil="Tapusin ang Hugis" data-en="Finish Shape">Tapusin ang Hugis</button>
+        <button id="clearShapeBtn" type="button"
+          class="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm font-semibold hover:bg-gray-50 transition" data-fil="Burahin" data-en="Clear">Burahin</button>
+      </div>
+      <p id="addFarmSensorInfo" class="hidden text-xs font-semibold text-[#0d631b]"></p>
+      <p id="addFarmError" class="hidden text-xs text-red-500"></p>
+
+      <!-- Already-marked farms list -->
+      <div id="existingFarmsWrap" class="border border-gray-100 rounded-xl p-3 bg-gray-50">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2" data-fil="Mga Bukid na Naka-mark na" data-en="Already Marked Farms">Mga Bukid na Naka-mark na</p>
+        <div id="existingFarmsList" class="space-y-1 max-h-28 overflow-y-auto text-xs text-gray-600"></div>
       </div>
     </div>
     <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
-      <button id="farmModalCancel"
-        class="px-5 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
-        I-cancel
-      </button>
-      <button id="farmModalSave"
-        class="px-5 py-2 bg-[#0d631b] text-white rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95">
-        I-save
-      </button>
+      <button id="addFarmCancel"
+        class="px-5 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition" data-fil="I-cancel" data-en="Cancel">I-cancel</button>
+      <button id="addFarmSave"
+        class="px-5 py-2 bg-[#0d631b] text-white rounded-lg text-sm font-bold hover:bg-green-800 transition active:scale-95" data-fil="I-rehistro" data-en="Register">I-rehistro</button>
     </div>
+  </div>
+</div>
+
+<!-- Success / info modal -->
+<div id="infoModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm text-center p-6">
+    <div class="w-14 h-14 mx-auto rounded-full bg-[#f0fdf4] flex items-center justify-center mb-4">
+      <span id="infoModalIcon" class="material-symbols-outlined text-3xl text-[#0d631b]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+    </div>
+    <h3 id="infoModalTitle" class="font-bold text-gray-800 text-lg mb-1">Tagumpay</h3>
+    <p id="infoModalMsg" class="text-sm text-gray-600"></p>
+    <button id="infoModalOk"
+      class="mt-5 w-full bg-[#0d631b] text-white rounded-lg py-2.5 text-sm font-bold hover:bg-green-800 transition active:scale-95">OK</button>
   </div>
 </div>
 
@@ -248,7 +351,7 @@
 <div id="deleteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
     <div class="px-6 py-5 border-b border-gray-100">
-      <h3 class="font-bold text-gray-800 text-lg">Kumpirmahin ang Pagtanggal</h3>
+      <h3 class="font-bold text-gray-800 text-lg" data-fil="Kumpirmahin ang Pagtanggal" data-en="Confirm Deletion">Kumpirmahin ang Pagtanggal</h3>
     </div>
     <div class="p-6">
       <p id="deleteModalMsg" class="text-sm text-gray-600"></p>
@@ -271,11 +374,19 @@
   const API = "";
 
   let farmers = [], farms = [], map, farmPolygons = [];
-  let editingFarmerId = null, assigningFarmId = null, deleteCb = null;
+  let sensorMarkers = [], farmMarkers = [];
+  const SENSOR_ZOOM_THRESHOLD = 13;  // zoom >= this shows individual sensors; below shows farm pins
+  let editingFarmerId = null, editingFarmId = null, deleteCb = null, currentTab = "tabDashboard";
+  let refPolygons = [], refMarkers = [], refInfoWindow = null;  // "already marked" farm overlays in the add/edit modal
+
+  // language helpers — JS-generated strings pick the active language
+  function curLang() { return localStorage.getItem("lang") || "fil"; }
+  function t(fil, en) { return curLang() === "en" ? en : fil; }
 
   // ─── Tab switching ───────────────────────────────────────────────────────────
   function setTab(id) {
-    ["tabDashboard","tabFarmers","tabFarms"].forEach(t => {
+    currentTab = id;
+    ["tabDashboard","tabFarmers","tabFarms","tabSettings"].forEach(t => {
       document.getElementById(t).classList.toggle("hidden", t !== id);
     });
     document.querySelectorAll(".nav-btn").forEach(b => {
@@ -285,6 +396,26 @@
     if (id === "tabFarmers")   loadFarmers();
     if (id === "tabFarms")     loadFarmsTab();
   }
+
+  // ─── Settings: theme + language (shared localStorage with farmer.html) ───────
+  function applyTheme(theme) {
+    localStorage.setItem("theme", theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.querySelectorAll(".theme-option").forEach(b => b.classList.toggle("active", b.dataset.theme === theme));
+  }
+  function applyLanguage(lang) {
+    localStorage.setItem("lang", lang);
+    document.querySelectorAll("[data-fil]").forEach(el => {
+      el.textContent = lang === "en" ? el.dataset.en : el.dataset.fil;
+    });
+    document.querySelectorAll(".lang-option").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+    // re-render dynamic content (table rows, empty states) in the new language
+    if (currentTab === "tabFarmers") loadFarmers();
+    else if (currentTab === "tabFarms") loadFarmsTab();
+    else if (currentTab === "tabDashboard") loadDashboard();
+  }
+  document.querySelectorAll(".theme-option").forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.theme)));
+  document.querySelectorAll(".lang-option").forEach(b => b.addEventListener("click", () => applyLanguage(b.dataset.lang)));
 
   document.querySelectorAll(".nav-btn").forEach(b =>
     b.addEventListener("click", () => setTab(b.dataset.tab))
@@ -304,32 +435,75 @@
       streetViewControl: false,
       mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT },
     });
+    // toggle sensor pins vs farm pins based on zoom so markers never vanish entirely
+    map.addListener("zoom_changed", updateMarkerVisibility);
     loadDashboard();
   };
 
-  function renderMap(fms) {
+  function clearMarkers(arr) { arr.forEach(m => m.setMap(null)); arr.length = 0; }
+
+  function updateMarkerVisibility() {
+    if (!map) return;
+    const zoomedIn = map.getZoom() >= SENSOR_ZOOM_THRESHOLD;
+    sensorMarkers.forEach(m => m.setMap(zoomedIn ? map : null));
+    farmMarkers.forEach(m => m.setMap(zoomedIn ? null : map));
+  }
+
+  function farmCentroid(f) {
+    const pts = f.polygon;
+    const lat = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+    const lng = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    return { lat, lng };
+  }
+
+  async function renderMap(fms) {
+    // farm boundary polygons
     farmPolygons.forEach(p => p.setMap(null));
     farmPolygons = fms
       .filter(f => Array.isArray(f.polygon) && f.polygon.length >= 3)
-      .map(f => {
-        const poly = new google.maps.Polygon({
-          paths: f.polygon.map(([lat, lng]) => ({ lat, lng })),
-          map,
-          fillColor: "#22c55e",
-          fillOpacity: 0.25,
-          strokeColor: "#16a34a",
-          strokeWeight: 2,
-        });
-        return poly;
-      });
+      .map(f => new google.maps.Polygon({
+        paths: f.polygon.map(([lat, lng]) => ({ lat, lng })),
+        map, fillColor: "#22c55e", fillOpacity: 0.25, strokeColor: "#16a34a", strokeWeight: 2,
+      }));
 
+    // one aggregate pin per farm (shown when zoomed out)
+    clearMarkers(farmMarkers);
+    fms.filter(f => Array.isArray(f.polygon) && f.polygon.length >= 3).forEach(f => {
+      farmMarkers.push(new google.maps.Marker({
+        position: farmCentroid(f),
+        title: f.farm_name || f.farm_id,
+        icon: {
+          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 5, fillColor: "#0d631b", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 1.5,
+        },
+      }));
+    });
+
+    // individual sensor pins (shown when zoomed in)
+    clearMarkers(sensorMarkers);
+    try {
+      const plots = await fetch(`${API}/plots`).then(r => r.json());
+      plots.filter(p => p.plot_id.includes("-S") && p.lat != null && p.lng != null).forEach(p => {
+        const hasReading = p.soil_n !== null && p.soil_n !== undefined;
+        sensorMarkers.push(new google.maps.Marker({
+          position: { lat: p.lat, lng: p.lng },
+          title: `${p.plot_id}${hasReading ? "" : " (walang reading)"}`,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 5,
+            fillColor: hasReading ? "#0d631b" : "#9ca3af",
+            fillOpacity: 1, strokeColor: "#fff", strokeWeight: 1,
+          },
+        }));
+      });
+    } catch {}
+
+    updateMarkerVisibility();
+
+    // fit to all farm boundaries
     if (fms.length) {
       const bounds = new google.maps.LatLngBounds();
-      fms.forEach(f => {
-        if (Array.isArray(f.polygon)) {
-          f.polygon.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
-        }
-      });
+      fms.forEach(f => { if (Array.isArray(f.polygon)) f.polygon.forEach(([lat, lng]) => bounds.extend({ lat, lng })); });
       if (!bounds.isEmpty()) map.fitBounds(bounds);
     }
   }
@@ -368,7 +542,7 @@
     const farmerMap = Object.fromEntries(farmers.map(f => [f.id, f.name]));
     const tbody = document.getElementById("dashFarmBody");
     if (!farms.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Walang bukid pa.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">${t("Walang bukid pa.","No farms yet.")}</td></tr>`;
       return;
     }
 
@@ -409,13 +583,13 @@
       farms   = await fmRes.json();
     } catch {
       document.getElementById("farmersBody").innerHTML =
-        `<tr><td colspan="4" class="px-6 py-8 text-center text-red-400">Hindi ma-load ang data.</td></tr>`;
+        `<tr><td colspan="4" class="px-6 py-8 text-center text-red-400">${t("Hindi ma-load ang data.","Could not load data.")}</td></tr>`;
       return;
     }
 
     const tbody = document.getElementById("farmersBody");
     if (!farmers.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Walang magsasaka pa.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">${t("Walang magsasaka pa.","No farmers yet.")}</td></tr>`;
       return;
     }
 
@@ -433,8 +607,8 @@
         <td class="px-6 py-4 text-gray-500">${created}</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
-            <button class="edit-farmer-btn text-xs font-bold text-[#0d631b] border border-[#0d631b] px-3 py-1 rounded-lg hover:bg-[#f0fdf4] transition">I-edit</button>
-            <button class="del-farmer-btn text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition">Burahin</button>
+            <button class="edit-farmer-btn text-xs font-bold text-[#0d631b] border border-[#0d631b] px-3 py-1 rounded-lg hover:bg-[#f0fdf4] transition">${t("I-edit","Edit")}</button>
+            <button class="del-farmer-btn text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition">${t("Burahin","Delete")}</button>
           </div>
         </td>`;
       tbody.appendChild(tr);
@@ -512,20 +686,32 @@
       farmers = await fmRes.json();
     } catch {
       document.getElementById("farmsBody").innerHTML =
-        `<tr><td colspan="5" class="px-6 py-8 text-center text-red-400">Hindi ma-load ang data.</td></tr>`;
+        `<tr><td colspan="5" class="px-6 py-8 text-center text-red-400">${t("Hindi ma-load ang data.","Could not load data.")}</td></tr>`;
       return;
     }
 
     const tbody = document.getElementById("farmsBody");
     if (!farms.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">Walang bukid pa.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">${t("Walang bukid pa.","No farms yet.")}</td></tr>`;
       return;
     }
 
     const farmerMap = Object.fromEntries(farmers.map(f => [String(f.id), f.name]));
 
     tbody.innerHTML = "";
-    farms.forEach(f => {
+    // fetch sensor totals (all plots) and readings status (via predict) in parallel per farm
+    const plots = await fetch(`${API}/plots`).then(r => r.json()).catch(() => []);
+    const rows = await Promise.all(farms.map(async f => {
+      const totalSensors = plots.filter(p => p.plot_id.startsWith(`${f.farm_id}-S`)).length;
+      let withReading = 0;
+      try {
+        const pred = await fetch(`${API}/farms/${encodeURIComponent(f.farm_id)}/predict`);
+        if (pred.ok) { const d = await pred.json(); withReading = d.sensor_count || 0; }
+      } catch {}
+      return { f, totalSensors, withReading };
+    }));
+
+    rows.forEach(({ f, totalSensors, withReading }) => {
       const farmerName = f.farmer_id != null ? (farmerMap[String(f.farmer_id)] || "—") : "—";
       const hectares   = f.hectares != null ? Number(f.hectares).toFixed(2) : "—";
       const tr = document.createElement("tr");
@@ -533,20 +719,18 @@
       tr.innerHTML = `
         <td class="px-6 py-4 font-medium text-gray-800">${esc(f.farm_name || f.farm_id)}</td>
         <td class="px-6 py-4 text-gray-600">${esc(farmerName)}</td>
-        <td class="px-6 py-4 text-gray-600">—</td>
+        <td class="px-6 py-4 text-gray-600">${withReading}/${totalSensors}</td>
         <td class="px-6 py-4 text-gray-600">${hectares} ha</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
-            <button class="assign-farm-btn text-xs font-bold text-[#0d631b] border border-[#0d631b] px-3 py-1 rounded-lg hover:bg-[#f0fdf4] transition">I-assign</button>
-            <button class="del-farm-btn text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition">Burahin</button>
+            <button class="edit-farm-btn text-xs font-bold text-[#0d631b] border border-[#0d631b] px-3 py-1 rounded-lg hover:bg-[#f0fdf4] transition">${t("I-edit","Edit")}</button>
+            <button class="del-farm-btn text-xs font-bold text-red-600 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50 transition">${t("Burahin","Delete")}</button>
           </div>
         </td>`;
       tbody.appendChild(tr);
-      const assignBtn = tr.querySelector(".assign-farm-btn");
-      const delBtn    = tr.querySelector(".del-farm-btn");
-      if (assignBtn) assignBtn.addEventListener("click", () =>
-        openFarmModal(f.farm_id, f.farm_name || f.farm_id, f.farmer_id != null ? String(f.farmer_id) : "")
-      );
+      const editBtn = tr.querySelector(".edit-farm-btn");
+      const delBtn  = tr.querySelector(".del-farm-btn");
+      if (editBtn) editBtn.addEventListener("click", () => openEditFarm(f));
       if (delBtn) delBtn.addEventListener("click", () => confirmDelete(
         `Burahin ang bukid na "${f.farm_name || f.farm_id}"? Hindi na ito mababawi.`,
         () => deleteFarm(f.farm_id)
@@ -554,56 +738,254 @@
     });
   }
 
-  function openFarmModal(farmId, farmName, currentFarmerId) {
-    assigningFarmId = farmId;
-    document.getElementById("farmModalName").textContent = farmName;
-    document.getElementById("farmModalError").classList.add("hidden");
-    document.getElementById("farmModalError").textContent = "";
+  // ─── Add Farm modal (map drawing + locate me) ───────────────────────────────
+  let addFarmMap = null, pendingVertices = [], pendingPolygon = null,
+      vertexMarkers = [], shapeFinished = false, pendingHectares = null;
 
-    // Populate farmer dropdown
-    const sel = document.getElementById("farmModalFarmerSelect");
-    sel.innerHTML = `<option value="">— Walang magsasaka —</option>`;
-    farmers.forEach(f => {
-      const opt = document.createElement("option");
-      opt.value = String(f.id);
-      opt.textContent = f.name;
-      if (String(f.id) === String(currentFarmerId)) opt.selected = true;
-      sel.appendChild(opt);
-    });
-
-    document.getElementById("farmModal").classList.remove("hidden");
+  function resetDrawing() {
+    pendingVertices = []; shapeFinished = false; pendingHectares = null;
+    if (pendingPolygon) { pendingPolygon.setMap(null); pendingPolygon = null; }
+    vertexMarkers.forEach(m => m.setMap(null)); vertexMarkers = [];
+    document.getElementById("addFarmHint").textContent =
+      "I-click ang mapa para maglagay ng mga sulok (3+), pagkatapos i-click ang \"Tapusin\".";
+    document.getElementById("addFarmSensorInfo").classList.add("hidden");
+    document.getElementById("addFarmError").classList.add("hidden");
   }
 
-  const addFarmBtnEl = document.getElementById("addFarmBtn");
-  addFarmBtnEl.disabled = true;
-  addFarmBtnEl.title = "Hindi available — gamitin ang API o simulation program";
-  addFarmBtnEl.classList.add("opacity-50", "cursor-not-allowed");
+  function redrawPendingShape() {
+    if (pendingPolygon) pendingPolygon.setMap(null);
+    vertexMarkers.forEach(m => m.setMap(null));
+    vertexMarkers = pendingVertices.map(v => new google.maps.Marker({
+      position: v, map: addFarmMap,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: "#0d631b", fillOpacity: 1, strokeWeight: 0 },
+    }));
+    pendingPolygon = pendingVertices.length >= 2
+      ? new google.maps.Polygon({
+          paths: pendingVertices, map: addFarmMap,
+          fillColor: "#0d631b", fillOpacity: 0.2, strokeColor: "#0d631b", strokeWeight: 2,
+        })
+      : null;
+  }
 
-  document.getElementById("farmModalClose").addEventListener("click",  () => document.getElementById("farmModal").classList.add("hidden"));
-  document.getElementById("farmModalCancel").addEventListener("click", () => document.getElementById("farmModal").classList.add("hidden"));
+  async function populateOwnerSelect(selectedFarmerId) {
+    const sel = document.getElementById("addFarmOwner");
+    sel.innerHTML = '<option value="" data-fil="— Walang magsasaka —" data-en="— No farmer —">— Walang magsasaka —</option>';
+    try {
+      const list = await fetch(`${API}/farmers`).then(r => r.json());
+      list.forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f.id;
+        opt.textContent = f.name;
+        if (selectedFarmerId != null && String(f.id) === String(selectedFarmerId)) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } catch {}
+  }
 
-  document.getElementById("farmModalSave").addEventListener("click", async () => {
-    const farmerId = document.getElementById("farmModalFarmerSelect").value;
-    const errEl    = document.getElementById("farmModalError");
-    errEl.classList.add("hidden");
+  // ─── "Already marked" reference overlay — shows every other farm's
+  // boundary + owner on the map and as a quick list, so admins drawing or
+  // editing a boundary can see what's already claimed. ────────────────────
+  async function renderReferenceFarms(excludeFarmId) {
+    refPolygons.forEach(p => p.setMap(null)); refPolygons = [];
+    refMarkers.forEach(m => m.setMap(null)); refMarkers = [];
+    if (refInfoWindow) { refInfoWindow.close(); }
+    const listEl = document.getElementById("existingFarmsList");
+    listEl.innerHTML = "";
+
+    let allFarms = [], allFarmers = [];
+    try {
+      [allFarms, allFarmers] = await Promise.all([
+        fetch(`${API}/farms`).then(r => r.json()),
+        fetch(`${API}/farmers`).then(r => r.json()),
+      ]);
+    } catch { return; }
+
+    const farmerMap = Object.fromEntries(allFarmers.map(f => [String(f.id), f.name]));
+    const others = allFarms.filter(f => f.farm_id !== excludeFarmId);
+
+    if (!others.length) {
+      listEl.innerHTML = `<p class="text-gray-400">${t("Walang ibang bukid pa.","No other farms yet.")}</p>`;
+      return;
+    }
+
+    others.forEach(f => {
+      const ownerName = f.farmer_id != null ? (farmerMap[String(f.farmer_id)] || t("Walang magsasaka","No farmer")) : t("Walang magsasaka","No farmer");
+      // map overlay
+      if (Array.isArray(f.polygon) && f.polygon.length >= 3) {
+        const paths = f.polygon.map(([lat, lng]) => ({ lat, lng }));
+        refPolygons.push(new google.maps.Polygon({
+          paths, map: addFarmMap, fillColor: "#9ca3af", fillOpacity: 0.25,
+          strokeColor: "#6b7280", strokeWeight: 1.5,
+        }));
+        const lat = paths.reduce((s, p) => s + p.lat, 0) / paths.length;
+        const lng = paths.reduce((s, p) => s + p.lng, 0) / paths.length;
+        const marker = new google.maps.Marker({
+          position: { lat, lng }, map: addFarmMap,
+          title: `${f.farm_name || f.farm_id} — ${ownerName}`,
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 4, fillColor: "#6b7280", fillOpacity: 1, strokeWeight: 0 },
+        });
+        marker.addListener("click", () => {
+          if (!refInfoWindow) refInfoWindow = new google.maps.InfoWindow();
+          refInfoWindow.setContent(`<div style="font-size:12px"><b>${esc(f.farm_name || f.farm_id)}</b><br>${esc(ownerName)}</div>`);
+          refInfoWindow.open(addFarmMap, marker);
+        });
+        refMarkers.push(marker);
+      }
+      // text list
+      const row = document.createElement("div");
+      row.className = "flex items-center justify-between gap-2";
+      row.innerHTML = `<span class="font-medium text-gray-700">${esc(f.farm_name || f.farm_id)}</span><span class="text-gray-400">${esc(ownerName)}</span>`;
+      listEl.appendChild(row);
+    });
+  }
+
+  function ensureAddFarmMap() {
+    if (addFarmMap) return;
+    addFarmMap = new google.maps.Map(document.getElementById("addFarmMap"), {
+      center: { lat: 12.8797, lng: 121.7740 }, zoom: 6,
+      mapTypeId: "satellite", streetViewControl: false,
+      mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT },
+    });
+    addFarmMap.addListener("click", (e) => {
+      if (shapeFinished) return;
+      pendingVertices.push({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      redrawPendingShape();
+    });
+  }
+
+  function openAddFarm() {
+    editingFarmId = null;
+    document.getElementById("addFarmTitle").textContent = t("Magdagdag ng Bukid", "Add Farm");
+    document.getElementById("addFarmTitle").setAttribute("data-fil", "Magdagdag ng Bukid");
+    document.getElementById("addFarmTitle").setAttribute("data-en", "Add Farm");
+    document.getElementById("addFarmSave").textContent = t("I-rehistro", "Register");
+    document.getElementById("addFarmName").value = "";
+    populateOwnerSelect(null);
+    document.getElementById("addFarmModal").classList.remove("hidden");
+    ensureAddFarmMap();
+    resetDrawing();
+    renderReferenceFarms(null);
+    setTimeout(() => { google.maps.event.trigger(addFarmMap, "resize"); }, 100);
+  }
+
+  function openEditFarm(farm) {
+    editingFarmId = farm.farm_id;
+    document.getElementById("addFarmTitle").textContent = t("I-edit ang Bukid", "Edit Farm");
+    document.getElementById("addFarmTitle").setAttribute("data-fil", "I-edit ang Bukid");
+    document.getElementById("addFarmTitle").setAttribute("data-en", "Edit Farm");
+    document.getElementById("addFarmSave").textContent = t("I-save", "Save");
+    document.getElementById("addFarmName").value = farm.farm_name || "";
+    populateOwnerSelect(farm.farmer_id);
+    document.getElementById("addFarmModal").classList.remove("hidden");
+    ensureAddFarmMap();
+    resetDrawing();
+    renderReferenceFarms(farm.farm_id);
+
+    // pre-load this farm's own boundary as the editable shape
+    if (Array.isArray(farm.polygon) && farm.polygon.length >= 3) {
+      pendingVertices = farm.polygon.map(([lat, lng]) => ({ lat, lng }));
+      shapeFinished = true;
+      pendingHectares = farm.hectares != null ? farm.hectares : google.maps.geometry.spherical.computeArea(pendingVertices) / 10000;
+      redrawPendingShape();
+      document.getElementById("addFarmHint").textContent = `Hectares: ${pendingHectares.toFixed(2)} — ${t("I-click ang Burahin para iguhit ulit.", "Click Clear to redraw.")}`;
+      const bounds = new google.maps.LatLngBounds();
+      pendingVertices.forEach(v => bounds.extend(v));
+      setTimeout(() => { google.maps.event.trigger(addFarmMap, "resize"); addFarmMap.fitBounds(bounds); }, 100);
+    } else {
+      setTimeout(() => { google.maps.event.trigger(addFarmMap, "resize"); }, 100);
+    }
+  }
+
+  document.getElementById("addFarmBtn").addEventListener("click", openAddFarm);
+  document.getElementById("addFarmClose").addEventListener("click", () => document.getElementById("addFarmModal").classList.add("hidden"));
+  document.getElementById("addFarmCancel").addEventListener("click", () => document.getElementById("addFarmModal").classList.add("hidden"));
+
+  document.getElementById("finishShapeBtn").addEventListener("click", () => {
+    const err = document.getElementById("addFarmError");
+    if (pendingVertices.length < 3) {
+      err.textContent = "Maglagay ng kahit 3 punto para makabuo ng hugis.";
+      err.classList.remove("hidden"); return;
+    }
+    err.classList.add("hidden");
+    shapeFinished = true;
+    pendingHectares = google.maps.geometry.spherical.computeArea(pendingVertices) / 10000;
+    const sensorCount = Math.min(30, Math.max(1, Math.round(pendingHectares * 5)));
+    document.getElementById("addFarmHint").textContent = `Hectares: ${pendingHectares.toFixed(2)}`;
+    const info = document.getElementById("addFarmSensorInfo");
+    info.textContent = `Mga sensor na ilalagay: ${sensorCount} (5/hektarya)`;
+    info.classList.remove("hidden");
+  });
+
+  document.getElementById("clearShapeBtn").addEventListener("click", resetDrawing);
+
+  document.getElementById("locateMeBtn").addEventListener("click", () => {
+    const err = document.getElementById("addFarmError");
+    if (!navigator.geolocation) {
+      err.textContent = "Walang geolocation support ang browser na ito.";
+      err.classList.remove("hidden"); return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        addFarmMap.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        addFarmMap.setZoom(17);
+        err.classList.add("hidden");
+      },
+      (e) => { err.textContent = `Hindi makuha ang lokasyon (${e.message}).`; err.classList.remove("hidden"); }
+    );
+  });
+
+  document.getElementById("addFarmSave").addEventListener("click", async () => {
+    const err = document.getElementById("addFarmError");
+    const name = document.getElementById("addFarmName").value.trim();
+    if (!name) { err.textContent = "Kailangan ng pangalan ng bukid."; err.classList.remove("hidden"); return; }
+    if (!shapeFinished) { err.textContent = "I-guhit ang hangganan at i-click ang \"Tapusin\" muna."; err.classList.remove("hidden"); return; }
+    const farmerId = document.getElementById("addFarmOwner").value;
+    const ownerName = farmerId
+      ? (document.getElementById("addFarmOwner").selectedOptions[0]?.textContent || null)
+      : null;
+    const polygon = pendingVertices.map(v => [v.lat, v.lng]);
 
     try {
-      const res = await fetch(`${API}/farms/${encodeURIComponent(assigningFarmId)}/farmer`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ farmer_id: farmerId || null }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        errEl.textContent = d.detail || "May error.";
-        errEl.classList.remove("hidden");
-        return;
+      if (editingFarmId) {
+        // ─── Edit existing farm ───
+        const res = await fetch(`${API}/farms/${encodeURIComponent(editingFarmId)}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ farm_name: name, owner_name: ownerName, hectares: pendingHectares, polygon }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          err.textContent = d.detail || "Hindi ma-save ang bukid."; err.classList.remove("hidden"); return;
+        }
+        await fetch(`${API}/farms/${encodeURIComponent(editingFarmId)}/farmer`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ farmer_id: farmerId || null }),
+        });
+        document.getElementById("addFarmModal").classList.add("hidden");
+        showInfo(t(`Na-update ang "${name}".`, `Updated "${name}".`));
+      } else {
+        // ─── Create new farm ───
+        const res = await fetch(`${API}/farms`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ farm_name: name, owner_name: ownerName, hectares: pendingHectares, polygon }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          err.textContent = d.detail || "Hindi malikha ang bukid."; err.classList.remove("hidden"); return;
+        }
+        const farm = await res.json();
+        if (farmerId) {
+          await fetch(`${API}/farms/${encodeURIComponent(farm.farm_id)}/farmer`, {
+            method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ farmer_id: farmerId }),
+          });
+        }
+        document.getElementById("addFarmModal").classList.add("hidden");
+        showInfo(t(`Naidagdag ang "${farm.farm_name}" na may ${farm.sensor_count} sensor.`,
+                   `Added "${farm.farm_name}" with ${farm.sensor_count} sensors.`));
       }
-      document.getElementById("farmModal").classList.add("hidden");
       await loadFarmsTab();
     } catch {
-      errEl.textContent = "Hindi ma-konekta sa server.";
-      errEl.classList.remove("hidden");
+      err.textContent = "Hindi ma-konekta sa server."; err.classList.remove("hidden");
     }
   });
 
@@ -631,6 +1013,15 @@
     if (deleteCb) { deleteCb(); deleteCb = null; }
   });
 
+  // ─── Success / info modal ────────────────────────────────────────────────────
+  function showInfo(msg, title) {
+    document.getElementById("infoModalTitle").textContent = title || t("Tagumpay", "Success");
+    document.getElementById("infoModalMsg").textContent = msg;
+    document.getElementById("infoModal").classList.remove("hidden");
+  }
+  document.getElementById("infoModalOk").addEventListener("click", () =>
+    document.getElementById("infoModal").classList.add("hidden"));
+
   // ─── Utility ─────────────────────────────────────────────────────────────────
   function esc(s) {
     if (s == null) return "";
@@ -639,7 +1030,9 @@
       .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   }
 
-  // ─── Boot: show Dashboard tab ────────────────────────────────────────────────
+  // ─── Boot: apply saved settings, show Dashboard tab ─────────────────────────
+  applyTheme(localStorage.getItem("theme") || "light");
+  applyLanguage(localStorage.getItem("lang") || "fil");
   setTab("tabDashboard");
 
   // Dynamically inject Maps script so the API key comes from config.js
@@ -647,7 +1040,7 @@
     const s = document.createElement("script");
     s.async = true;
     s.defer = true;
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry&callback=initMap`;
     document.head.appendChild(s);
   })();
 </script>

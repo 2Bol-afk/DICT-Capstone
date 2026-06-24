@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import db
+from auth import hash_password, verify_password
 from train_crop_model import FEATURES, MIN_CONFIDENCE, MODEL_PATH, PH_CROP_WHITELIST
 
 CROP_FIL = {
@@ -156,14 +157,18 @@ def create_plot(plot: PlotIn):
 
 
 @app.post("/readings/simulate")
-def simulate_reading(plot_id: str):
-    """Generate one realistic reading for an existing plot and predict on it."""
+def simulate_reading(plot_id: str, crop: str | None = None):
+    """Generate one realistic reading for an existing plot and predict on it.
+
+    Pass `crop` to pin the sampled profile (e.g. so every sensor on the same
+    farm samples the same crop) — otherwise one is picked at random.
+    """
     existing = db.get_readings_for_plot(plot_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Unknown plot_id: {plot_id}")
     latest = existing[0]
 
-    sampled = simulate_sensor_values(_crop_df)
+    sampled = simulate_sensor_values(_crop_df, crop=crop)
     sampled.pop("_source_crop")
     prediction = predict_crop(
         sampled["soil_n"], sampled["soil_p"], sampled["soil_k"],
@@ -238,6 +243,11 @@ class FarmerIn(BaseModel):
 
 class FarmAssignIn(BaseModel):
     farmer_id: str | None = None
+
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
 
 
 @app.post("/farms")
@@ -360,18 +370,19 @@ def explain_farm(farm_id: str, lang: str = "en"):
 
 @app.get("/farmers")
 def list_farmers():
-    return db.get_all_farmers()
+    return [{k: v for k, v in f.items() if k != "password_hash"} for f in db.get_all_farmers()]
 
 
 @app.post("/farmers")
 def create_farmer(body: FarmerIn):
     if db.get_farmer_by_name(body.name):
         raise HTTPException(status_code=409, detail=f"Farmer name already taken: {body.name}")
-    return db.insert_farmer({
+    farmer = db.insert_farmer({
         "id": str(uuid.uuid4()),
         "name": body.name,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
+    return {k: v for k, v in farmer.items() if k != "password_hash"}
 
 
 @app.put("/farmers/{farmer_id}")
@@ -381,7 +392,8 @@ def update_farmer(farmer_id: str, body: FarmerIn):
     existing = db.get_farmer_by_name(body.name)
     if existing and existing["id"] != farmer_id:
         raise HTTPException(status_code=409, detail=f"Name already taken: {body.name}")
-    return db.update_farmer(farmer_id, body.name)
+    farmer = db.update_farmer(farmer_id, body.name)
+    return {k: v for k, v in farmer.items() if k != "password_hash"}
 
 
 @app.delete("/farmers/{farmer_id}")
@@ -392,16 +404,60 @@ def remove_farmer(farmer_id: str):
     return {"deleted": farmer_id}
 
 
+def _farmer_with_farms(farmer: dict) -> dict:
+    farms = [f for f in db.get_all_farms() if f.get("farmer_id") == farmer["id"]]
+    for f in farms:
+        f["polygon"] = json.loads(f["polygon"]) if isinstance(f["polygon"], str) else f["polygon"]
+        f["sensors"] = db.get_latest_for_farm(f["farm_id"])
+    safe = {k: v for k, v in farmer.items() if k != "password_hash"}
+    return {**safe, "farms": farms}
+
+
 @app.get("/farmers/by-name/{name}")
 def farmer_by_name(name: str):
     farmer = db.get_farmer_by_name(name)
     if not farmer:
         raise HTTPException(status_code=404, detail=f"Unknown farmer: {name}")
-    farms = [f for f in db.get_all_farms() if f.get("farmer_id") == farmer["id"]]
-    for f in farms:
-        f["polygon"] = json.loads(f["polygon"]) if isinstance(f["polygon"], str) else f["polygon"]
-        f["sensors"] = db.get_latest_for_farm(f["farm_id"])
-    return {**farmer, "farms": farms}
+    return _farmer_with_farms(farmer)
+
+
+@app.post("/auth/login")
+def login(body: LoginIn):
+    """Single login for both roles. Username 'admin' is the admin account;
+    any other username is a farmer account.
+
+    - Unknown username -> creates the account with this password right away.
+    - Known username with no password set yet (e.g. admin pre-created the
+      farmer in the admin panel) -> claims the account with this password.
+    - Known username with a password set -> must match, else 401.
+    """
+    name = body.username.strip()
+    if not name or not body.password:
+        raise HTTPException(status_code=400, detail="Kailangan ang username at password.")
+
+    role = "admin" if name.lower() == "admin" else "farmer"
+    farmer = db.get_farmer_by_name(name)
+
+    if farmer is None:
+        farmer = db.insert_farmer({
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "password_hash": hash_password(body.password),
+            "role": role,
+        })
+    elif not farmer.get("password_hash"):
+        db.set_farmer_password(farmer["id"], hash_password(body.password))
+        farmer["password_hash"] = "set"
+        role = farmer.get("role") or role
+    else:
+        if not verify_password(body.password, farmer["password_hash"]):
+            raise HTTPException(status_code=401, detail="Maling password.")
+        role = farmer.get("role") or role
+
+    if role == "admin":
+        return {"role": "admin", "name": farmer["name"]}
+    return {"role": "farmer", **_farmer_with_farms(farmer)}
 
 
 @app.put("/farms/{farm_id}/farmer")
