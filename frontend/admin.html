@@ -350,14 +350,12 @@
     document.getElementById("statFarmers").textContent = farmers.length;
     document.getElementById("statFarms").textContent   = farms.length;
 
-    // Count farms with at least one reading
+    // Count sensors with readings (via predict endpoint which returns sensor_count)
     let sensorsWithReading = 0;
     const readingChecks = farms.map(async f => {
       try {
-        const r = await fetch(`${API}/readings/${encodeURIComponent(f.farm_id)}`);
-        if (!r.ok) return;
-        const readings = await r.json();
-        if (Array.isArray(readings) && readings.length > 0) sensorsWithReading++;
+        const pred = await fetch(`${API}/farms/${encodeURIComponent(f.farm_id)}/predict`).then(r => r.ok ? r.json() : null);
+        if (pred) sensorsWithReading += pred.sensor_count || 0;
       } catch {}
     });
     await Promise.all(readingChecks);
@@ -377,16 +375,10 @@
     const rows = await Promise.all(farms.map(async f => {
       let sensorCount = 0, rec = "—";
       try {
-        const r = await fetch(`${API}/readings/${encodeURIComponent(f.farm_id)}`);
-        if (r.ok) {
-          const readings = await r.json();
-          sensorCount = Array.isArray(readings) ? readings.length : 0;
-        }
-      } catch {}
-      try {
         const r = await fetch(`${API}/farms/${encodeURIComponent(f.farm_id)}/predict`);
         if (r.ok) {
           const d = await r.json();
+          sensorCount = d.sensor_count || 0;
           if (d.crop) rec = d.crop;
         }
       } catch {}
@@ -532,20 +524,8 @@
 
     const farmerMap = Object.fromEntries(farmers.map(f => [String(f.id), f.name]));
 
-    const farmData = await Promise.all(farms.map(async f => {
-      let sensorCount = 0;
-      try {
-        const r = await fetch(`${API}/readings/${encodeURIComponent(f.farm_id)}`);
-        if (r.ok) {
-          const readings = await r.json();
-          sensorCount = Array.isArray(readings) ? readings.length : 0;
-        }
-      } catch {}
-      return { f, sensorCount };
-    }));
-
     tbody.innerHTML = "";
-    farmData.forEach(({ f, sensorCount }) => {
+    farms.forEach(f => {
       const farmerName = f.farmer_id != null ? (farmerMap[String(f.farmer_id)] || "—") : "—";
       const hectares   = f.hectares != null ? Number(f.hectares).toFixed(2) : "—";
       const tr = document.createElement("tr");
@@ -553,7 +533,7 @@
       tr.innerHTML = `
         <td class="px-6 py-4 font-medium text-gray-800">${esc(f.farm_name || f.farm_id)}</td>
         <td class="px-6 py-4 text-gray-600">${esc(farmerName)}</td>
-        <td class="px-6 py-4 text-gray-600">${sensorCount}</td>
+        <td class="px-6 py-4 text-gray-600">—</td>
         <td class="px-6 py-4 text-gray-600">${hectares} ha</td>
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">

@@ -1,6 +1,7 @@
 import json
 import subprocess
 import time
+import uuid
 from datetime import datetime, timezone
 
 import joblib
@@ -304,6 +305,17 @@ def remove_farm(farm_id: str):
     return {"deleted": farm_id}
 
 
+@app.get("/farms/by-name/{farm_name}")
+def farm_by_name(farm_name: str):
+    """Farmer login: look up a farm (and its sensor sub-plots) by name, no password."""
+    farm = db.get_farm_by_name(farm_name)
+    if not farm:
+        raise HTTPException(status_code=404, detail=f"Unknown farm name: {farm_name}")
+    farm["polygon"] = json.loads(farm["polygon"])
+    farm["sensors"] = db.get_latest_for_farm(farm["farm_id"])
+    return farm
+
+
 @app.get("/farms/{farm_id}/predict")
 def predict_farm(farm_id: str):
     """Average all sensors' latest readings in the farm and predict one best crop for the whole farm."""
@@ -346,17 +358,6 @@ def explain_farm(farm_id: str, lang: str = "en"):
     return {"explanation": explanation}
 
 
-@app.get("/farms/by-name/{farm_name}")
-def farm_by_name(farm_name: str):
-    """Farmer login: look up a farm (and its sensor sub-plots) by name, no password."""
-    farm = db.get_farm_by_name(farm_name)
-    if not farm:
-        raise HTTPException(status_code=404, detail=f"Unknown farm name: {farm_name}")
-    farm["polygon"] = json.loads(farm["polygon"])
-    farm["sensors"] = db.get_latest_for_farm(farm["farm_id"])
-    return farm
-
-
 @app.get("/farmers")
 def list_farmers():
     return db.get_all_farmers()
@@ -364,7 +365,6 @@ def list_farmers():
 
 @app.post("/farmers")
 def create_farmer(body: FarmerIn):
-    import uuid
     if db.get_farmer_by_name(body.name):
         raise HTTPException(status_code=409, detail=f"Farmer name already taken: {body.name}")
     return db.insert_farmer({
