@@ -33,3 +33,49 @@ def test_farm_crud(clear_firestore):
 
     db.delete_farm("FARM-1")
     assert db.get_farm("FARM-1") is None
+
+
+def test_farmer_crud(clear_firestore):
+    import db
+    db.init_db()
+
+    farmer = db.insert_farmer({
+        "id": "FARMER-1",
+        "name": "Maria",
+        "created_at": "2026-06-25T00:00:00Z",
+        "password_hash": None,
+        "role": "farmer",
+    })
+    assert farmer["id"] == "FARMER-1"
+    assert farmer["name"] == "Maria"
+
+    fetched = db.get_farmer("FARMER-1")
+    assert fetched["name"] == "Maria"
+
+    by_name = db.get_farmer_by_name("Maria")
+    assert by_name["id"] == "FARMER-1"
+
+    db.set_farmer_password("FARMER-1", "salt$hash")
+    assert db.get_farmer("FARMER-1")["password_hash"] == "salt$hash"
+
+    farm = db.insert_farm({
+        "farm_id": "FARM-2",
+        "farm_name": "Maria's Farm",
+        "owner_name": "Maria",
+        "hectares": 2.0,
+        "polygon": "[]",
+        "created_at": "2026-06-25T00:00:00Z",
+    })
+    db.assign_farm_to_farmer(farm["farm_id"], "FARMER-1")
+    assert db.get_farm("FARM-2")["farmer_id"] == "FARMER-1"
+
+    all_farmers = db.get_all_farmers()
+    assert len(all_farmers) == 1
+    assert all_farmers[0]["farm_count"] == 1
+
+    updated = db.update_farmer("FARMER-1", "Maria Updated")
+    assert updated["name"] == "Maria Updated"
+
+    db.delete_farmer("FARMER-1")
+    assert db.get_farmer("FARMER-1") is None
+    assert db.get_farm("FARM-2")["farmer_id"] is None
