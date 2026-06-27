@@ -126,25 +126,72 @@ def assign_farm_to_farmer(farm_id: str, farmer_id: str | None):
     get_db().collection(FARMS).document(farm_id).update({"farmer_id": farmer_id})
 
 
+READINGS = "readings"
+
+
 def insert_reading(row: dict) -> dict:
-    raise NotImplementedError("migrated in Task 4")
+    doc_ref = get_db().collection(READINGS).document()
+    doc_ref.set({
+        "plot_id": row["plot_id"], "owner_name": row["owner_name"],
+        "lat": row["lat"], "lng": row["lng"], "timestamp": row["timestamp"],
+        "soil_n": row["soil_n"], "soil_p": row["soil_p"], "soil_k": row["soil_k"],
+        "soil_ph": row["soil_ph"], "air_temp_c": row["air_temp_c"],
+        "humidity_pct": row["humidity_pct"], "rainfall_mm": row["rainfall_mm"],
+        "soil_moisture_pct": row["soil_moisture_pct"],
+        "predicted_crop": row["predicted_crop"], "confidence": row["confidence"],
+        "filtered": bool(row["filtered"]),
+    })
+    return get_reading_by_id(doc_ref.id)
 
 
 def get_reading_by_id(row_id) -> dict | None:
-    raise NotImplementedError("migrated in Task 4")
+    doc = get_db().collection(READINGS).document(str(row_id)).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
+    data["id"] = doc.id
+    return data
 
 
 def get_all_readings() -> list[dict]:
-    raise NotImplementedError("migrated in Task 4")
+    results = []
+    for doc in get_db().collection(READINGS).order_by("timestamp", direction="DESCENDING").stream():
+        data = doc.to_dict()
+        data["id"] = doc.id
+        results.append(data)
+    return results
 
 
 def get_readings_for_plot(plot_id: str) -> list[dict]:
-    raise NotImplementedError("migrated in Task 4")
+    results = []
+    query = (
+        get_db().collection(READINGS)
+        .where("plot_id", "==", plot_id)
+        .order_by("timestamp", direction="DESCENDING")
+    )
+    for doc in query.stream():
+        data = doc.to_dict()
+        data["id"] = doc.id
+        results.append(data)
+    return results
+
+
+def _latest_by_plot(readings: list[dict]) -> list[dict]:
+    # ponytail: Firestore has no SQL-style GROUP BY/MAX JOIN — reduce in Python.
+    # Fine at co-op scale (hundreds of readings, not millions).
+    latest: dict[str, dict] = {}
+    for r in readings:
+        existing = latest.get(r["plot_id"])
+        if existing is None or r["timestamp"] > existing["timestamp"]:
+            latest[r["plot_id"]] = r
+    return list(latest.values())
 
 
 def get_latest_per_plot() -> list[dict]:
-    raise NotImplementedError("migrated in Task 4")
+    return _latest_by_plot(get_all_readings())
 
 
 def get_latest_for_farm(farm_id: str) -> list[dict]:
-    raise NotImplementedError("migrated in Task 4")
+    all_readings = get_all_readings()
+    for_farm = [r for r in all_readings if r["plot_id"].startswith(f"{farm_id}-")]
+    return _latest_by_plot(for_farm)

@@ -79,3 +79,42 @@ def test_farmer_crud(clear_firestore):
     db.delete_farmer("FARMER-1")
     assert db.get_farmer("FARMER-1") is None
     assert db.get_farm("FARM-2")["farmer_id"] is None
+
+
+def test_readings_crud(clear_firestore):
+    import db
+    db.init_db()
+
+    r1 = db.insert_reading({
+        "plot_id": "FARM-3-S1", "owner_name": "Pedro", "lat": 14.5, "lng": 121.0,
+        "timestamp": "2026-06-25T00:00:00Z", "soil_n": 10, "soil_p": 5, "soil_k": 8,
+        "soil_ph": 6.5, "air_temp_c": 28.0, "humidity_pct": 70.0, "rainfall_mm": 100.0,
+        "soil_moisture_pct": 40.0, "predicted_crop": "rice", "confidence": 0.9, "filtered": False,
+    })
+    assert r1["plot_id"] == "FARM-3-S1"
+    assert "id" in r1
+
+    r2 = db.insert_reading({
+        "plot_id": "FARM-3-S1", "owner_name": "Pedro", "lat": 14.5, "lng": 121.0,
+        "timestamp": "2026-06-25T01:00:00Z", "soil_n": 12, "soil_p": 6, "soil_k": 9,
+        "soil_ph": 6.6, "air_temp_c": 29.0, "humidity_pct": 71.0, "rainfall_mm": 101.0,
+        "soil_moisture_pct": 41.0, "predicted_crop": "rice", "confidence": 0.91, "filtered": False,
+    })
+
+    fetched = db.get_reading_by_id(r1["id"])
+    assert fetched["soil_n"] == 10
+
+    for_plot = db.get_readings_for_plot("FARM-3-S1")
+    assert len(for_plot) == 2
+    assert for_plot[0]["timestamp"] == "2026-06-25T01:00:00Z"  # newest first
+
+    latest_per_plot = db.get_latest_per_plot()
+    assert len(latest_per_plot) == 1
+    assert latest_per_plot[0]["timestamp"] == "2026-06-25T01:00:00Z"
+
+    latest_for_farm = db.get_latest_for_farm("FARM-3")
+    assert len(latest_for_farm) == 1
+    assert latest_for_farm[0]["plot_id"] == "FARM-3-S1"
+
+    all_readings = db.get_all_readings()
+    assert len(all_readings) == 2
