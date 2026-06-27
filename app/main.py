@@ -190,7 +190,7 @@ def simulate_reading(plot_id: str, crop: str | None = None):
 
 
 @app.get("/readings/{reading_id}/explain")
-def explain(reading_id: int, lang: str = "en"):
+def explain(reading_id: str, lang: str = "en"):
     """Ask the local offline LLM (Ollama) to explain a specific reading's prediction,
     then translate it offline (NLLB-200) if lang is 'fil' or 'hil'."""
     reading = db.get_reading_by_id(reading_id)
