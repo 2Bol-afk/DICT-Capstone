@@ -1,4 +1,13 @@
-"""Full backend smoke test. Hits every endpoint and asserts sane responses."""
+"""Full backend smoke test. Hits every endpoint and asserts sane responses.
+
+STANDALONE SCRIPT, NOT A PYTEST TEST: this module executes top-level code at import
+time against a live server, so it is NOT picked up automatically by `pytest` and does
+NOT use the Firestore emulator fixture in conftest.py. To run it safely against
+Firestore without touching production data: set FIRESTORE_EMULATOR_HOST=localhost:8080
+and GOOGLE_CLOUD_PROJECT=bukid-ac67d, start the Firestore emulator, then start the live
+server with `python -m uvicorn main:app` (from app/) on port 8000, then run this script
+directly with `python test_full.py`.
+"""
 import requests, sys
 
 API = "http://127.0.0.1:8000"

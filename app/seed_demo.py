@@ -1,7 +1,8 @@
 """Reset the DB and seed a presentable demo dataset via the live API.
 
-ponytail: deletes readings.db and starts fresh — this is simulated demo
-data only, safe to wipe and regenerate any time.
+ponytail: Firestore data is ephemeral/safe to wipe via the Firebase Console or
+emulator — this seeds fresh demo data via the live API regardless of what's
+already there.
 """
 import random
 import time
@@ -9,7 +10,6 @@ import time
 import requests
 
 API = "http://127.0.0.1:8000"
-DB_PATH = "readings.db"
 READINGS_PER_PLOT = 3
 NUM_PLOTS = 8
 
@@ -22,8 +22,9 @@ OWNER_NAMES = [
 
 
 def main():
-    # NOTE: delete readings.db and restart the backend (so its startup hook
-    # re-runs init_db()) before running this script.
+    # NOTE: this seeds via the live API and is safe to re-run any time — Firestore
+    # data can simply be wiped via the Firebase Console or emulator if you want a
+    # clean slate first.
     for i, owner in enumerate(OWNER_NAMES[:NUM_PLOTS], start=1):
         plot_id = f"FARM-{i:03d}"
         plot = {

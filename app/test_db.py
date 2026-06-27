@@ -35,6 +35,36 @@ def test_farm_crud(clear_firestore):
     assert db.get_farm("FARM-1") is None
 
 
+def test_delete_farm_cascades_readings(clear_firestore):
+    import db
+    db.init_db()
+
+    farm = db.insert_farm({
+        "farm_id": "FARM-CASCADE",
+        "farm_name": "Cascade Farm",
+        "owner_name": "Juan",
+        "hectares": 1.0,
+        "polygon": "[]",
+        "created_at": "2026-06-25T00:00:00Z",
+    })
+    farm_id = farm["farm_id"]
+    plot_id = f"{farm_id}-S1"
+
+    db.insert_reading({
+        "plot_id": plot_id, "owner_name": "Juan", "lat": 14.5, "lng": 121.0,
+        "timestamp": "2026-06-25T00:00:00Z", "soil_n": 10, "soil_p": 5, "soil_k": 8,
+        "soil_ph": 6.5, "air_temp_c": 28.0, "humidity_pct": 70.0, "rainfall_mm": 100.0,
+        "soil_moisture_pct": 40.0, "predicted_crop": "rice", "confidence": 0.9, "filtered": False,
+    })
+
+    assert len(db.get_readings_for_plot(plot_id)) == 1
+
+    db.delete_farm(farm_id)
+
+    assert db.get_farm(farm_id) is None
+    assert db.get_readings_for_plot(plot_id) == []
+
+
 def test_farmer_crud(clear_firestore):
     import db
     db.init_db()

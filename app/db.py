@@ -59,6 +59,10 @@ def update_farm(farm_id: str, farm_name: str, owner_name: str | None, hectares: 
 
 def delete_farm(farm_id: str):
     get_db().collection(FARMS).document(farm_id).delete()
+    # Cascade-delete this farm's readings via a string range query: plot_ids follow the
+    # "{farm_id}-S{n}" convention, and "-" (0x2D) sorts immediately before "." (0x2E) in
+    # Firestore's string ordering, so [f"{farm_id}-", f"{farm_id}.") tightly bounds every
+    # plot_id belonging to this farm without matching farm_ids that share a prefix.
     readings = get_db().collection("readings").where("plot_id", ">=", f"{farm_id}-").where("plot_id", "<", f"{farm_id}.").stream()
     for r in readings:
         r.reference.delete()
@@ -144,7 +148,7 @@ def insert_reading(row: dict) -> dict:
     return get_reading_by_id(doc_ref.id)
 
 
-def get_reading_by_id(row_id) -> dict | None:
+def get_reading_by_id(row_id: str) -> dict | None:
     doc = get_db().collection(READINGS).document(str(row_id)).get()
     if not doc.exists:
         return None
