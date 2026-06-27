@@ -17,7 +17,7 @@ Open http://127.0.0.1:8000
 - **Farmer:** enter farmer name → redirects to farmer dashboard
 
 ## Stack
-- Backend: Python / FastAPI / SQLite
+- Backend: Python / FastAPI / Firestore
 - ML: scikit-learn RandomForest crop recommendation
 - AI Explain: Ollama (qwen2.5:3b) — offline LLM
 - Translation: facebook/nllb-200-distilled-600M — offline Tagalog
